@@ -13,6 +13,6 @@
   "init_std": 0.02,
   "bos_id": 2,
   "eos_id": 3,
-  "pad_id": 0,
-  "unk_id": 4
+  "pad_id": 1,
+  "unk_id": 0
 }

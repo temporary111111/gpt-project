@@ -31,6 +31,27 @@ def encode_text_to_bin(text_path: str, bin_path: str, tokenizer,
     return len(ids)
 
 
+def verify_bin_integrity(bin_path: str, expected_tokens: Optional[int] = None,
+                         name: str = "dataset") -> int:
+    """Verifies a uint16 .bin file size matches its token count and returns it.
+
+    Raises ValueError on mismatch. Does not modify the file.
+    """
+    if not os.path.exists(bin_path):
+        raise FileNotFoundError(f"{name} binary not found: {bin_path}")
+    size = os.path.getsize(bin_path)
+    if size % 2 != 0:
+        raise ValueError(f"{name} binary size {size} is not a multiple of 2 (uint16)")
+    n_tokens = size // 2
+    if expected_tokens is not None and n_tokens != expected_tokens:
+        raise ValueError(
+            f"{name} token count mismatch: file has {n_tokens:,} tokens "
+            f"({size:,} bytes) but metadata expects {expected_tokens:,} "
+            f"({expected_tokens * 2:,} bytes)"
+        )
+    return n_tokens
+
+
 class BinaryDataset:
     """Random-window access over a uint16 memmap of token ids."""
 
@@ -49,6 +70,29 @@ class BinaryDataset:
 
     def __len__(self) -> int:
         return self.length
+
+    @property
+    def n_tokens(self) -> int:
+        return self.length
+
+    def reset_rng(self, seed: int):
+        """Reset the sampling generator deterministically (used for stable validation)."""
+        self.rng = np.random.default_rng(seed)
+
+    def state_dict(self) -> dict:
+        return {
+            "bin_path": self.bin_path,
+            "block_size": self.block_size,
+            "batch_size": self.batch_size,
+            "offset": self.offset,
+            "length": self.length,
+            "rng_state": self.rng.bit_generator.state,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        self.offset = state["offset"]
+        self.length = state["length"]
+        self.rng.bit_generator.state = state["rng_state"]
 
     def get_batch(self, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.length < self.block_size + 1:

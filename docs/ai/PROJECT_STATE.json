@@ -1,0 +1,149 @@
+{
+  "schema_version": "1.0",
+  "project": "chatgpt-like",
+  "updated_at": "2026-08-20T12:00:00Z",
+  "project_root": "C:\\Users\\dev\\Desktop\\chatgpt-like",
+  "python": "3.11",
+  "venv": ".\\venv\\Scripts\\python.exe",
+  "hardware": {
+    "os": "Windows 11",
+    "cpu": "AMD Ryzen 5 5600H",
+    "ram_gb": 8,
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "vram_gb": 4
+  },
+  "strict_from_scratch": true,
+  "current_phase": "awaiting lead architect review of handoff",
+  "last_completed_task": "TASK 004.5",
+  "current_task": "TASK 005 (pending lead architect task text)",
+  "next_planned_task": "TASK 005",
+  "model": {
+    "name": "GPT-style decoder-only Transformer",
+    "params_total": 29270528,
+    "params_trainable": 29270528,
+    "vocab_size": 8000,
+    "d_model": 512,
+    "n_layers": 8,
+    "n_heads": 8,
+    "ffn_dim": 2048,
+    "block_size": 256,
+    "norm": "RMSNorm",
+    "positional": "RoPE",
+    "tied_embeddings": true,
+    "dropout": 0,
+    "config_file": "configs/model_small.json",
+    "src": ["src/model.py", "src/attention.py"]
+  },
+  "special_tokens": {
+    "unk": 0,
+    "pad": 1,
+    "bos": 2,
+    "eos": 3,
+    "system": 4,
+    "user": 5,
+    "assistant": 6
+  },
+  "tokenizer": {
+    "type": "SentencePiece BPE",
+    "vocab_size": 8000,
+    "trained_from_scratch": true,
+    "model_file": "data/tokenizer/tokenizer_v1.model",
+    "vocab_file": "data/tokenizer/tokenizer_v1.vocab",
+    "meta_file": "data/tokenizer/tokenizer_v1_meta.json"
+  },
+  "dataset": {
+    "train_tokens": 39299287,
+    "validation_tokens": 415832,
+    "test_tokens": 284270,
+    "mix": "approx 60% English / 40% Filipino",
+    "train_bin": "data/processed/train.bin",
+    "validation_bin": "data/processed/validation.bin",
+    "test_bin": "data/processed/test.bin",
+    "test_bin_sealed": true
+  },
+  "production_training": {
+    "task": "TASK 004",
+    "out_dir": "checkpoints/pretrain_v1",
+    "total_optimizer_steps": 38379,
+    "total_tokens_seen": 314400768,
+    "corpus_passes": 8.0002,
+    "final_train_loss": 2.480394,
+    "best_val_loss": 3.073326,
+    "best_step": 36500,
+    "final_val_loss": 3.076171,
+    "best_perplexity": 21.61,
+    "final_perplexity": 21.68,
+    "peak_vram_gb": 1.38,
+    "tokens_per_second_median": 17139,
+    "hyperparameters": {
+      "batch_size": 8,
+      "grad_accum": 4,
+      "effective_batch": 32,
+      "ctx": 256,
+      "lr": 0.0006,
+      "min_lr": 0.00006,
+      "warmup_iters": 500,
+      "weight_decay": 0.1,
+      "clip_grad": 1.0,
+      "max_iters": 38379,
+      "eval_iters": 50,
+      "mixed_precision": "amp fp16",
+      "seed": 1337
+    },
+    "run_config": "checkpoints/pretrain_v1/run_config.json",
+    "metrics": "checkpoints/pretrain_v1/metrics.jsonl"
+  },
+  "checkpoints": {
+    "best": {
+      "path": "checkpoints/pretrain_v1/best.pt",
+      "step": 36500,
+      "best_val_loss": 3.0733262872695923
+    },
+    "latest": {
+      "path": "checkpoints/pretrain_v1/latest.pt",
+      "step": 38379,
+      "tokens_seen": 314400768
+    }
+  },
+  "known_limitations": [
+    "base model only, not chat/instruction tuned",
+    "repetition, especially greedy decoding",
+    "fluent factual hallucination",
+    "small-model reasoning limitations",
+    "rare replacement-character output for OOV symbols"
+  ],
+  "known_fixed_bugs": [
+    "incorrect special-token IDs",
+    "validation sourced from train.bin",
+    "AMP clipping scaled gradients",
+    "mathematically inconsistent RoPE layout (fixed to cat-based convention)",
+    "CUDA RNG state resume issue (CPU RNG pinned; CPU tensors for cuda.set_rng_state_all)",
+    "checkpoint best/latest save order (latest now carries updated best_val_loss)",
+    "optimizer parameter grouping/dedup",
+    "deterministic validation",
+    "AMP non-finite gradient events self-heal (skip step + halve scale; 12 events in TASK 004)"
+  ],
+  "git": {
+    "repository": true,
+    "branch": "main",
+    "remote": "origin",
+    "remote_url": "https://github.com/temporary111111/gpt-project.git",
+    "remote_authenticated": true,
+    "gh_cli_available": false,
+    "milestone_tags": ["task-004-pretraining-complete"]
+  },
+  "handoff": {
+    "builder": "tools/ai_ops/build_handoff.py",
+    "finalizer": "tools/ai_ops/finalize_task.py",
+    "zip": "AI_LEAD_HANDOFF.zip",
+    "entry_point": "00_START_HERE.md"
+  },
+  "ai_ops_infrastructure": {
+    "docs_ai": "docs/ai/",
+    "agents_md": "AGENTS.md",
+    "opencode_json": "opencode.json",
+    "start_here": "00_START_HERE.md",
+    "recovery": "docs/ai/RECOVERY_PROTOCOL.md",
+    "tests": "tests/test_ai_ops.py"
+  }
+}

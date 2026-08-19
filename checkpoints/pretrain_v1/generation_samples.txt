@@ -1,0 +1,62 @@
+BASE MODEL GENERATION SAMPLES (checkpoint: best.pt, step 36500, best_val_loss 3.0733)
+======================================================================
+
+--- PROMPT: 'The'  (ids=[87])
+
+[greedy] The first two of the most important and most important and most important and most important and most important and most important and most important and most important and important people in the world have a history of history. The history of the world has been influenced by many important and important events. The history of the world has been influenced by many
+
+[sampled t=0.8 k=40 p=0.9 seed=2000] The 18th century, the United States government said that the United States government would send a new government to help the country. The government also said that it was not a democracy. The government also said that the United States government had a big influence on society. The idea of government was also important to society.
+
+--- PROMPT: 'Once upon a time'  (ids=[7645, 1438, 11, 515])
+
+[greedy] Once upon a time, he was in a hurry to get out of the house, and he was in a hurry. He was afraid to get out of the house, but he was not going to be afraid. He was afraid to get out of the house, and he was going
+
+[sampled t=0.8 k=40 p=0.9 seed=2001] Once upon a time he had been tossing the floor at the back of the roof to be heard. He could hear the voice of Muda Saffir from the opposite side of the man he had seen in the camp, and then he saw that he was upon his back that was in his mind. He saw that he
+
+--- PROMPT: 'The Philippines'  (ids=[87, 4291])
+
+[greedy] The Philippines is a country in the Philippines. It is the second-largest country in the world. The country is the second-largest country in the world. The country is the second-largest country in the world. The country is the second-largest country in the world. The country is the second-
+
+[sampled t=0.8 k=40 p=0.9 seed=2002] The Philippines (dating Manila) (1986) Kilalang-kilala at Magsasaka (Pilipino: Tagapangulo ng Komisyon sa Kilalang Pamahalaan ng Pilipinas) Mga kasapi ng Kilalang Pamahalaan ng Pilipinas (1986–1989) Cor
+
+--- PROMPT: 'A person'  (ids=[43, 1004])
+
+[greedy] A person can be a person who is not afraid of any of the things that are not true. In the United States, people who are not very good at a time are called "homosexual" because they are not true. In the United States, people who are not very good at a time
+
+[sampled t=0.8 k=40 p=0.9 seed=2003] A person may have a normal number of different size. The number of words that can be used by a person is usually 12, 25, or 27. The number of words that can be written by a person is 14, 24 or 25. In some other languages,
+
+--- PROMPT: 'Ang'  (ids=[211])
+
+[greedy] Ang mga ito ay hindi napapatunayan sa mga ito. Ang mga ito ay hindi napapatunayan sa mga ito. Ang mga ito ay hindi napapatunayan sa mga ito. Ang mga ito ay hindi napapatunayan sa mga ito. Ang mga ito ay hindi napapatun
+
+[sampled t=0.8 k=40 p=0.9 seed=2004] Ang katagang ito ay nagmula sa Latin na cumius (kaliwa), ibig sabihin ay "kapal ng dugo", na tumutukoy sa isang balyena na may dalawang patong ng balat ng tisyu, at ang tisyu na may dalawang patong ng balat na
+
+--- PROMPT: 'Ang Pilipinas'  (ids=[211, 1037])
+
+[greedy] Ang Pilipinas ay may 100,000 na mga Pilipino. Ang mga Pilipino ay may 100,000 na mga Pilipino. Ang mga Pilipino ay may 100,000 Pilipino. Ang mga Pilipino ay may 100,000 Pilipino. Ang mga Pilipino
+
+[sampled t=0.8 k=40 p=0.9 seed=2005] Ang Pilipinas ay ang kabisera ng Pilipinas at pinakamalaking lungsod ng bansa. Ito rin ang sentro ng mga industriya ng porselana sa buong mundo. Ito ay ang pinakamalaki at pinakamataong lungsod sa Pilipinas at pinakamalaking pandaigdigang lungsod ng bansa. Ang mga pinakamaunlad at pinakamaunlad na lungsod ng bansa ay ang
+
+--- PROMPT: 'Sa isang'  (ids=[521, 220])
+
+[greedy] Sa isang mas malakas na kondisyon, ang mga kondisyon ay maaaring magdulot ng mga kondisyon na hindi maaaring magdulot ng mga kondisyon na hindi maaaring magdulot ng mga kondisyon na hindi maaaring magdulot ng mga kondisyon. Ang mga kondisyon na ito
+
+[sampled t=0.8 k=40 p=0.9 seed=2006] Sa isang pangitain ng mga taong may matandang edad sa pag-uusig ng batas sa mga bata, ang mga may mataas na paaralan ay hindi pa napapatunayan kung ito ay nasa mataas na paaralan ay lalabag sa batas sa mga bata at pati na rin sa mga bata sa mga bata.
+
+--- PROMPT: 'Ang tao'  (ids=[211, 1440])
+
+[greedy] Ang tao ay maaaring makapagbigay ng mga tiyak na resulta. Ang mga ito ay maaaring makapagbigay ng mga tiyak na resulta. Ang mga ito ay maaaring makapagbigay ng mga tiyak na resulta. Ang mga ito ay maaaring makapagbigay ng mga tiyak na resulta. Ang mga t
+
+[sampled t=0.8 k=40 p=0.9 seed=2007] Ang tao ay maaaring humantong sa mga sumusunod: Ang mga ugnayan sa pagitan ng mga indibidwal at ang mga ito ay dapat humantong sa mahinang kalusugan at maaaring umiral kung ang mga ito ay magkakaroon ng mga komplikadong paraan ng pagpapakalansag. Ang ugnayan sa pagitan ng
+
+--- PROMPT: 'Kumusta'  (ids=[7451, 209, 7848])
+
+[greedy] Kumusta, at ang kanyang mga kaibigan ay nakilala bilang isang "Maharlika". Ang kanyang mga magulang ay sina Sophia at Sophia. Ang kanyang ama ay si Sophia at ang kanyang ina ay si Sophia. Ang kanyang ama ay si Sophia at ang kanyang ina ay
+
+[sampled t=0.8 k=40 p=0.9 seed=2008] Kumusta, at si Bono ay nakilala bilang isang magaling na pinuno ng mga alagad ng sining ng pag-ibig. Siya ay may dalawang anak na babae na nagngangalang Melchora. Ang kanyang pamilya ay may magkakaibang mga alagad. Si Melchora ay may dalawang mga kapatid
+
+--- PROMPT: 'Hello'  (ids=[79, 4360])
+
+[greedy] Hello, American singer-songwriter and guitarist 1969 – Dave Mack, American singer-songwriter and guitarist 1969 – Dave Mack, American singer-songwriter and guitarist 1970 – Jason Robbins, American actor 1970 – Jason Rob
+
+[sampled t=0.8 k=40 p=0.9 seed=2009] Hello!! My love! We are going to try to kill him, I reckon; we’ll never see him again. We are not to go to the woods that he won’t get back to the woods, but he’s got to go back to the woods, and then he

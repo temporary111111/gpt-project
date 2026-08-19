@@ -7,16 +7,39 @@ __pycache__/
 # Virtual environment
 .venv/
 
-# Training artifacts
-checkpoints/
-data/processed/
-data/tokenizer/
-data/cleaned/
+# Training artifacts: NEVER commit model checkpoints or temp files.
+# Small run metadata (metrics.jsonl, run_config.json, generation_samples.txt)
+# under checkpoints/ MAY be tracked because they are small and useful.
+checkpoints/**/*.pt
+checkpoints/**/*.tmp
+*.tmp
 
-# Large downloaded datasets (keep provenance manifests, not the dumps)
+# Tokenizer: track the real v1 tokenizer (model/vocab/meta) for reproducibility;
+# ignore smoke-test tokenizer artifacts.
+data/tokenizer/smoke_*
+
+# Data: keep provenance manifests and small metadata; NEVER commit corpus
+# binaries or raw/cleaned dumps.
+data/processed/*.bin
 data/sources/
 data/raw/
+data/cleaned/
 data/manifests/sources.jsonl
+
+# Handoff / review packages (superseded zips; current one is AI_LEAD_HANDOFF.zip)
+AI_LEAD_HANDOFF.zip
+architect_task*.zip
+
+# Unrelated nested repository present in the working tree (separate project)
+chatgpt-agent-gateway/
+
+# Secrets (never commit)
+.env
+.env.*
+*.key
+*.pem
+credentials*
+secrets*
 
 # IDE / OS
 .idea/

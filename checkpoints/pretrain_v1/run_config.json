@@ -1,0 +1,61 @@
+{
+  "task": "TASK 004 production pretraining",
+  "timestamp": "2026-08-19T11:54:21.179859+00:00",
+  "command": "C:\\Users\\dev\\Desktop\\chatgpt-like\\src\\train.py --data data\\processed\\train.bin --val-data data\\processed\\validation.bin --config configs\\model_small.json --out-dir checkpoints\\pretrain_v1 --init-from scratch --batch-size 8 --grad-accum 4 --max-iters 38379 --lr 0.0006 --min-lr 0.00006 --warmup-iters 500 --weight-decay 0.1 --clip-grad 1.0 --log-interval 25 --eval-interval 500 --eval-iters 50 --save-interval 500 --seed 1337",
+  "python": "C:\\Users\\dev\\Desktop\\chatgpt-like\\.venv\\Scripts\\python.exe",
+  "device": "cuda",
+  "mixed_precision": true,
+  "hyperparameters": {
+    "init_from": "scratch",
+    "data": "data\\processed\\train.bin",
+    "val_data": "data\\processed\\validation.bin",
+    "batch_size": 8,
+    "grad_accum": 4,
+    "context_length": 256,
+    "max_iters": 38379,
+    "lr": 0.0006,
+    "min_lr": 6e-05,
+    "warmup_iters": 500,
+    "weight_decay": 0.1,
+    "clip_grad": 1.0,
+    "seed": 1337,
+    "log_interval": 25,
+    "eval_interval": 500,
+    "eval_iters": 50,
+    "save_interval": 500
+  },
+  "model_config": {
+    "vocab_size": 8000,
+    "d_model": 512,
+    "n_layers": 8,
+    "n_heads": 8,
+    "ffn_dim": 2048,
+    "block_size": 256,
+    "norm": "rms",
+    "activation": "gelu",
+    "pos_encoding": "rope",
+    "tie_weights": true,
+    "dropout": 0.0,
+    "init_std": 0.02,
+    "rope_theta": 10000.0,
+    "bos_id": 2,
+    "eos_id": 3,
+    "pad_id": 1,
+    "unk_id": 0
+  },
+  "data": {
+    "train_bin": "data\\processed\\train.bin",
+    "train_tokens": 39299287,
+    "val_bin": "data\\processed\\validation.bin",
+    "val_tokens": 415832,
+    "dataset_meta": "data\\processed\\dataset_meta.json",
+    "tokenizer_meta": "data\\tokenizer\\tokenizer_v1_meta.json"
+  },
+  "expected": {
+    "params_total": 29270528,
+    "params_trainable": 29270528,
+    "tokens_per_step": 8192,
+    "target_tokens": 314400768,
+    "target_corpus_passes": 8.000164684921637
+  }
+}

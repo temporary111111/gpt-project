@@ -1,0 +1,135 @@
+TASK 003.5 RESULT
+  Pretraining safety/correctness hardening complete. All five issues fixed,
+  verified by a 50-passing-test suite and a CUDA preflight run (50 steps) with
+  resume verification. No production pretraining started.
+
+SPECIAL TOKEN FIX
+  - configs/model_small.json: pad_id 0 -> 1, unk_id 4 -> 0 (bos 2, eos 3 kept).
+  - src/model.py ModelConfig defaults: pad_id=1, unk_id=0.
+  - Startup validation (train.py validate_config_against_metadata) compares
+    cfg against data/processed/dataset_meta.json and
+    data/tokenizer/tokenizer_v1_meta.json. Any mismatch of vocab_size,
+    pad_id, bos_id, eos_id, unk_id exits with [FATAL] before training.
+
+VALIDATION DATA FIX
+  - --data uses data/processed/train.bin (100%, no internal split).
+  - --val-data uses data/processed/validation.bin (100%).
+  - test.bin is never touched by the trainer.
+
+ROPE FIX
+  - rotate_half() follows the two-halves convention
+    (out = [-x[D/2:], x[:D/2]]).
+  - _build_rope_cache now builds freqs = cat((freqs, freqs), dim=-1) so angle i
+    is applied to BOTH halves of the same coordinate pair. The previous
+    repeat_interleave layout paired mismatched coordinates.
+  - Proved with the old layout: max norm deviation 9.5e-1 vs 4.8e-7 fixed.
+  - tests/test_rope.py covers: position-0 identity, L2 norm preservation,
+    hand-computed tiny vector (head_dim=4, t=1), model cache layout,
+    Q/K same-frequency-convention symmetry, and causality (future tokens do
+    not change earlier outputs, dropout=0). The norm, tiny-vector, and cache
+    layout tests FAIL under the old implementation (verified).
+
+AMP
+  - Correct flow: scaler.scale(loss/accum) -> backward -> scaler.unscale_ ->
+    clip_grad_norm_ -> scaler.step -> scaler.update. Without AMP the same
+    clip/step path runs without the scaler.
+  - Gradient norm is logged every interval (grad_norm).
+
+GRADIENT FIX
+  - Non-finite train loss is checked per micro-batch BEFORE backward; a safe
+    stop saves the latest healthy checkpoint and exits with [FATAL].
+  - Non-finite gradient norm is detected after unscale; same safe-stop path.
+  - Loss is accumulated over grad_accum micro-batches and divided before
+    backprop, giving correct gradient magnitudes under grad-accumulation.
+
+OPTIMIZER VALIDATION
+  - configure_optimizer builds two groups: weight-decay on all matrices and
+    embeddings, no decay on biases / norms / 1-D params.
+  - Tied lm_head/tok_emb parameters are deduplicated by id (no double update).
+  - Assertion guarantees every unique trainable parameter is in EXACTLY one
+    group (covered by tests/test_train.py::test_optimizer_groups_cover_each_parameter_once).
+  - Params: 29,270,528 total and trainable (8 layers, d_model 512, 8 heads,
+    FFN 2048, context 256, vocab 8000). Architecture unchanged.
+
+CHECKPOINT
+  - checkpoints/pretrain/latest.pt = fully resumable state; best.pt = lowest
+    validation loss.
+  - Atomic writes via <name>.pt.tmp + os.replace (no torn checkpoints).
+  - Payload: step, tokens_seen, best_val_loss, model/optimizer/GradScaler
+    state, config, args, train/val dataset states, and Python/NumPy/torch
+    CPU/CUDA RNG states.
+  - Loading validates that the checkpoint config matches the current config
+    and refuses to silently resume an unrelated checkpoint.
+
+RESUME TEST
+  - --resume-path (default <out-dir>/latest.pt); restore covers model,
+    optimizer, scaler, step, tokens_seen, best_val_loss, Python random,
+    NumPy, torch CPU and CUDA RNGs, and dataset sampler states.
+  - Caught and fixed a real resume bug: torch.load(map_location=cuda) moves
+    saved ByteTensor RNG states to GPU; CPU RNG must be pinned back to CPU
+    and torch.cuda.set_rng_state_all requires CPU tensors.
+  - tests cover CPU-side round-trips (RNG, sampler continuation, model
+    output equality); the CUDA path was verified live in the preflight resume.
+
+DATA INTEGRITY CHECK
+  - train.bin: 39,299,287 tokens = 78,598,574 bytes (uint16 x2) OK.
+  - validation.bin: 415,832 tokens = 831,664 bytes (uint16 x2) OK.
+  - Verified at startup against data/processed/dataset_meta.json; bins are
+    read-only and never modified.
+  - Packed corpus has no padding: pretraining computes cross-entropy over
+    EVERY target (ignore_index=-100 default; no -100 targets exist).
+    <pad> stays reserved with id 1; covered by
+    test_no_padding_loss_trains_over_all_targets.
+
+TEST RESULTS
+  - 50 passed (28 existing + 22 new for TASK 003.5) in ~10s.
+  - Smoke test (scripts/smoke_test.py) PASSED.
+
+PREFLIGHT TRAINING RESULT
+  - Command: python -m src.train --data data\processed\train.bin
+    --val-data data\processed\validation.bin --config configs\model_small.json
+    --out-dir checkpoints\preflight --batch-size 8 --grad-accum 4
+    --max-iters 50 --save-interval 10 --eval-interval 10 --log-interval 5
+  - Device: CUDA, mixed precision float16 (AMP), 50 optimizer steps.
+  - latest.pt + best.pt written at every save interval; final save at step 50.
+  - Preflight weights are throwaway; Task 004 starts from scratch.
+
+PREFLIGHT LOSS
+  - Train loss: 8.9360 (step 5) -> 6.6901 (step 50), monotonically decreasing.
+  - Final resumed run continued 6.10 at step 60.
+
+PREFLIGHT VALIDATION LOSS
+  - Val loss (deterministic, fixed seed per eval): 8.1371 (step 10) ->
+    6.4270 (step 50); best.pt updated on each improvement.
+
+TOKENS PER SECOND
+  - ~3,600-10,300 tokens/sec across the run (batch 8 x grad-accum 4 x
+    context 256 on RTX 3050 Laptop).
+
+PEAK VRAM
+  - 1.27 GB during the 50-step run; 1.38 GB observed on the resumed run.
+
+RESUME VERIFICATION
+  - Resumed from checkpoints\preflight\latest.pt: step 50, tokens_seen
+    409,600 -> continued to step 60, tokens_seen 491,520 (10 optimizer steps
+    x 8,192 tokens/step). Step/tokens/throughput counters continue correctly;
+    loss and val loss kept descending, confirming optimizer/LR/RNG state were
+    restored, not restarted.
+
+ERRORS OR WARNINGS
+  - Two resume attempts initially failed on the RNG tensor device issue
+    described under RESUME TEST; root cause fixed in restore_rng_state.
+  - No other errors or warnings in the final run.
+
+ZIP READY
+  - architect_task004_preflight_review.zip created at project root with:
+    configs/model_small.json, src/model.py, src/attention.py, src/dataset.py,
+    src/train.py, data/processed/dataset_meta.json,
+    data/tokenizer/tokenizer_v1_meta.json, requirements.txt,
+    tests/test_data.py, tests/test_model.py, tests/test_tokenizer.py,
+    tests/test_rope.py, tests/test_train.py, TASK_003_5_REPORT.txt.
+    Excludes .venv, *.bin, tokenizer model, downloaded/raw/cleaned data,
+    *.pt checkpoints, and caches.
+
+READY FOR TASK 004
+  - Awaiting lead architect approval. No production pretraining started.

@@ -1,0 +1,51 @@
+{
+  "vocab_size": 8000,
+  "model_type": "bpe",
+  "training_files": [
+    "data\\processed\\corpus_text.txt"
+  ],
+  "corpus_sha256": "1db62d3643db19430c75fdb44fe378ad0044756000977284427c720fffca0793",
+  "languages": [
+    "en",
+    "tl"
+  ],
+  "sentencepiece_args": {
+    "input": [
+      "data\\processed\\corpus_text.txt"
+    ],
+    "model_prefix": "data\\tokenizer\\tokenizer_v1",
+    "vocab_size": 8000,
+    "model_type": "bpe",
+    "user_defined_symbols": [
+      "<pad>",
+      "<bos>",
+      "<eos>",
+      "<system>",
+      "<user>",
+      "<assistant>"
+    ],
+    "unk_piece": "<unk>",
+    "pad_id": -1,
+    "bos_id": -1,
+    "eos_id": -1,
+    "character_coverage": 0.9995,
+    "split_digits": true
+  },
+  "pad_id": 1,
+  "bos_id": 2,
+  "eos_id": 3,
+  "unk_id": 0,
+  "system_id": 4,
+  "user_id": 5,
+  "assistant_id": 6,
+  "special_tokens": [
+    "<pad>",
+    "<bos>",
+    "<eos>",
+    "<system>",
+    "<user>",
+    "<assistant>",
+    "<unk>"
+  ],
+  "created": "2026-08-19 18:59:30"
+}

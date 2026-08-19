@@ -34,8 +34,8 @@ class ModelConfig:
     rope_theta: float = 10000.0
     bos_id: int = 2
     eos_id: int = 3
-    pad_id: int = 0
-    unk_id: int = 4
+    pad_id: int = 1
+    unk_id: int = 0
 
     @classmethod
     def from_json(cls, path: str) -> "ModelConfig":

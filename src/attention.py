@@ -56,7 +56,12 @@ class CausalSelfAttention(nn.Module):
         inv_freq = 1.0 / (theta ** (torch.arange(0, head_dim, 2, dtype=torch.float32) / head_dim))
         t = torch.arange(self.block_size, dtype=torch.float32)
         freqs = torch.outer(t, inv_freq)            # (block_size, head_dim/2)
-        freqs = freqs.repeat_interleave(2, dim=-1)  # (block_size, head_dim)
+        # rotate_half() uses the "two halves" pairing convention
+        # (first half is the real part, second half the imaginary part), so the
+        # per-dimension angle must be duplicated as (freq_0, freq_1, ..., freq_0,
+        # freq_1, ...). repeat_interleave would produce adjacent-pair angles and
+        # silently rotate the wrong coordinates.
+        freqs = torch.cat((freqs, freqs), dim=-1)   # (block_size, head_dim)
         freqs = freqs.unsqueeze(1)                  # (block_size, 1, head_dim)
         cos = freqs.cos()  # (T, 1, D) broadcasts over (B, T, H, D)
         sin = freqs.sin()
