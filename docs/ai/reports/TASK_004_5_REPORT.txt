@@ -159,8 +159,8 @@ ERRORS OR WARNINGS
 AI_LEAD_HANDOFF READY
 =====================
 - Absolute path: C:\Users\dev\Desktop\chatgpt-like\AI_LEAD_HANDOFF.zip
-- ZIP size: (reported in final console print below)
-- Git commit SHA: (reported in final console print below)
+- ZIP size: 426,756 bytes (58 entries)
+- Git commit SHA: 000c3c6d788ee9f68ccc162520c3d4a0319adf24
 - Push status: pushed to origin/main
 - Remote URL (no credentials): https://github.com/temporary111111/gpt-project.git
 
