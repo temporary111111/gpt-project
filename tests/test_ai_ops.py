@@ -1,7 +1,18 @@
-"""Tests for the AI ops tooling (TASK 004.5).
+"""Tests for the AI ops tooling (TASK 004.5 + TASK 004.6 hardening).
 
 All tests use temporary directories/repositories. The real remote is never
 touched (push tests use a local bare repository).
+
+TASK 004.6 additions cover:
+1. failing required tests ABORT finalization (no commit, no push)
+2. handoff contains committed bytes from git HEAD (never dirty worktree bytes)
+3. manifest hashes match the exact bytes stored in the ZIP
+4. dirty working tree is accurately reported and never silently included
+5. finalizer completion commit SHA == handoff manifest commit SHA (invariant)
+6. no-change finalization still builds the handoff from HEAD (no empty commit)
+7. .venv path / updated_at integrity in PROJECT_STATE.json
+8. .gitignore is included in the handoff when safe
+9. existing secret/large-artifact protections remain intact
 """
 
 import json
@@ -9,14 +20,16 @@ import os
 import subprocess
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "ai_ops"))
 
-from build_handoff import build_handoff, sha256_file  # noqa: E402
-from finalize_task import finalize_task, is_safe_path, scan_candidates  # noqa: E402
+import finalize_task as finalize_mod  # noqa: E402
+from build_handoff import build_handoff, git_state, sha256_bytes, sha256_file  # noqa: E402
+from finalize_task import finalize_task, is_safe_path  # noqa: E402
 
 CONTINUITY_FILES = [
     "docs/ai/CURRENT_STATE.md",
@@ -49,6 +62,7 @@ def make_project(tmp_path: Path) -> Path:
     (proj / "opencode.json").write_text('{"$schema": "https://opencode.ai/config.json"}\n', encoding="utf-8")
     (proj / "README.md").write_text("# readme\n", encoding="utf-8")
     (proj / "requirements.txt").write_text("pytest\n", encoding="utf-8")
+    (proj / ".gitignore").write_text("data/processed/*.bin\n", encoding="utf-8")
     (proj / "src").mkdir()
     (proj / "src" / "model.py").write_text("class GPTModel: pass\n", encoding="utf-8")
     (proj / "src" / "train.py").write_text("def train(): pass\n", encoding="utf-8")
@@ -71,6 +85,7 @@ def init_git(proj: Path, remote: Path | None = None):
     git("init", "-b", "main", cwd=proj)
     git("config", "user.name", "tester", cwd=proj)
     git("config", "user.email", "tester@example.com", cwd=proj)
+    git("config", "core.autocrlf", "false", cwd=proj)
     git("add", "-A", cwd=proj)
     git("commit", "-m", "initial", cwd=proj)
     if remote is not None:
@@ -79,12 +94,27 @@ def init_git(proj: Path, remote: Path | None = None):
         git("push", "-u", "origin", "main", cwd=proj)
 
 
+def add_commit(proj: Path, rel: str, content: str | bytes, msg: str = "add file"):
+    p = proj / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(content, str):
+        p.write_text(content, encoding="utf-8")
+    else:
+        p.write_bytes(content)
+    git("add", rel, cwd=proj)
+    git("commit", "-m", msg, cwd=proj)
+
+
 @pytest.fixture()
 def proj(tmp_path):
     p = make_project(tmp_path)
     init_git(p)
     return p
 
+
+# --------------------------------------------------------------------------
+# TASK 004.5 regression suite
+# --------------------------------------------------------------------------
 
 def test_handoff_excludes_pt_bin_and_secrets(proj, tmp_path):
     (proj / "docs" / "ai" / "CURRENT_STATE.md").write_text("updated\n", encoding="utf-8")
@@ -118,8 +148,8 @@ def test_manifest_hashes_are_correct(proj, tmp_path):
     build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
     with zipfile.ZipFile(out) as z:
         manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
-        git_state = json.loads(z.read("GIT_STATE.json"))
-    assert manifest["git"]["head_sha"] == git_state["git"]["head_sha"]
+        git_state_json = json.loads(z.read("GIT_STATE.json"))
+    assert manifest["git"]["head_sha"] == git_state_json["git"]["head_sha"]
     assert manifest["current_task"] == "TASK 004.5"
     assert manifest["next_planned_task"] == "TASK 005"
     by_path = {m["path"]: m for m in manifest["files"]}
@@ -128,13 +158,12 @@ def test_manifest_hashes_are_correct(proj, tmp_path):
 
 
 def test_oversized_files_are_omitted(proj, tmp_path):
-    (proj / "src" / "big.py").write_bytes(b"x" * 500)
+    add_commit(proj, "src/big.py", b"x" * 500, "add big.py")
     out = tmp_path / "out.zip"
     result = build_handoff(proj, out_zip=out, max_file_bytes=100)
     names = zipfile.ZipFile(out).namelist()
     assert "src/big.py" not in names
     assert any(o["path"] == "src/big.py" for o in result["omitted_oversized"])
-    assert "src/big.py" in result["omitted_oversized"][0]["path"]
 
 
 def test_zip_opens_and_is_valid(proj, tmp_path):
@@ -209,9 +238,12 @@ def test_finalizer_does_not_force_push(proj, tmp_path, monkeypatch):
 def test_finalizer_no_changes_no_empty_commit(proj, tmp_path):
     before = git("rev-parse", "HEAD", cwd=proj).stdout.strip()
     result = finalize_task(proj, task="TASK 005", summary="nothing", run_tests=False)
-    assert result["commit_sha"] is None
+    assert result["status"] == "NO_CHANGES"
+    assert result["commit_sha"] == before
     assert git("rev-parse", "HEAD", cwd=proj).stdout.strip() == before
     assert any("no empty commit" in w for w in result["warnings"])
+    assert result["handoff"] is not None
+    assert result["push_status"] == "nothing_to_push"
 
 
 def test_commit_sha_recorded_in_handoff(proj, tmp_path):
@@ -232,3 +264,161 @@ def test_handoff_omits_pt_hashes_only_when_requested(proj, tmp_path):
     pts = [a for a in manifest["omitted_important_artifacts"] if a["path"].endswith(".pt")]
     assert len(pts) == 2
     assert all("sha256" in a for a in pts)
+
+
+# --------------------------------------------------------------------------
+# TASK 004.6 hardening suite
+# --------------------------------------------------------------------------
+
+def test_failing_pytest_prevents_commit(proj, monkeypatch):
+    (proj / "NEW_FILE.md").write_text("new\n", encoding="utf-8")
+    before = git("rev-parse", "HEAD", cwd=proj).stdout.strip()
+
+    def fail(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(finalize_mod, "run_test_suite", fail)
+    result = finalize_task(proj, task="TASK 005", summary="should abort", run_tests=True)
+    assert result["tests"] == "FAILED"
+    assert result["status"] == "TESTS_FAILED"
+    assert any("TESTS_FAILED" in e for e in result["errors"])
+    assert result["commit_sha"] is None
+    assert result["handoff"] is None
+    assert git("rev-parse", "HEAD", cwd=proj).stdout.strip() == before
+    assert "NEW_FILE.md" not in git("ls-files", cwd=proj).stdout
+
+
+def test_failing_pytest_prevents_push(proj, tmp_path, monkeypatch):
+    remote = tmp_path / "remote.git"
+    init_git(proj, remote=remote)
+    remote_before = git("ls-remote", str(remote), "refs/heads/main", cwd=proj).stdout.strip().split()[0]
+    (proj / "SAFE_PUSH.md").write_text("x\n", encoding="utf-8")
+
+    def fail(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(finalize_mod, "run_test_suite", fail)
+    result = finalize_task(proj, task="TASK 005", summary="should not push", run_tests=True)
+    assert result["tests"] == "FAILED"
+    assert any("TESTS_FAILED" in e for e in result["errors"])
+    remote_after = git("ls-remote", str(remote), "refs/heads/main", cwd=proj).stdout.strip().split()[0]
+    assert remote_after == remote_before
+
+
+def test_handoff_uses_committed_bytes_not_dirty(proj, tmp_path):
+    committed = (proj / "src" / "model.py").read_bytes()
+    (proj / "src" / "model.py").write_text("DIRTY WORKTREE CONTENT\n", encoding="utf-8")
+    out = tmp_path / "out.zip"
+    build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
+    with zipfile.ZipFile(out) as z:
+        assert z.read("src/model.py") == committed
+        manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
+    by_path = {m["path"]: m for m in manifest["files"]}
+    assert by_path["src/model.py"]["sha256"] == sha256_bytes(committed)
+    assert by_path["src/model.py"]["sha256"] != sha256_bytes(b"DIRTY WORKTREE CONTENT\n")
+
+
+def test_manifest_hashes_match_stored_bytes(proj, tmp_path):
+    out = tmp_path / "out.zip"
+    build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
+    with zipfile.ZipFile(out) as z:
+        manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
+        for entry in manifest["files"]:
+            stored = z.read(entry["path"])
+            assert sha256_bytes(stored) == entry["sha256"], entry["path"]
+            assert len(stored) == entry["size"], entry["path"]
+
+
+def test_dirty_worktree_accurately_reported(proj):
+    state = git_state(proj)
+    assert state["working_tree_clean"] is True
+    assert state["tracked_worktree_modified_count"] == 0
+    assert state["staged_change_count"] == 0
+    assert state["untracked_count"] == 0
+
+    (proj / "src" / "model.py").write_text("dirty\n", encoding="utf-8")
+    state = git_state(proj)
+    assert state["working_tree_clean"] is False
+    assert state["tracked_worktree_modified_count"] == 1
+    assert state["staged_change_count"] == 0
+
+    git("add", "src/model.py", cwd=proj)
+    state = git_state(proj)
+    assert state["staged_change_count"] == 1
+    assert state["tracked_worktree_modified_count"] == 0
+
+    (proj / "untracked_new.py").write_text("x\n", encoding="utf-8")
+    state = git_state(proj)
+    assert state["untracked_count"] == 1
+    assert state["working_tree_clean"] is False
+
+
+def test_dirty_modifications_not_silently_included(proj, tmp_path):
+    committed = (proj / "src" / "train.py").read_bytes()
+    (proj / "src" / "train.py").write_text("MODIFIED BUT NOT COMMITTED\n", encoding="utf-8")
+    out = tmp_path / "out.zip"
+    result = build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
+    assert result["working_tree_clean"] is False
+    with zipfile.ZipFile(out) as z:
+        manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
+        assert manifest["working_tree_diff_not_included"] is True
+        assert z.read("src/train.py") == committed
+
+
+def test_finalizer_commit_matches_handoff_manifest(proj):
+    (proj / "SAFE_INV.md").write_text("invariant\n", encoding="utf-8")
+    result = finalize_task(proj, task="TASK 005", summary="invariant", run_tests=False)
+    assert not result["errors"], result["errors"]
+    assert result["status"] == "COMPLETED"
+    with zipfile.ZipFile(result["handoff"]["zip_path"]) as z:
+        manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
+    assert manifest["git"]["head_sha"] == result["commit_sha"]
+    assert manifest["git"]["head_sha"] == git("rev-parse", "HEAD", cwd=proj).stdout.strip()
+
+
+def test_no_change_finalization_builds_handoff(proj):
+    before = git("rev-parse", "HEAD", cwd=proj).stdout.strip()
+    result = finalize_task(proj, task="TASK 005", summary="no changes", run_tests=False)
+    assert not result["errors"], result["errors"]
+    assert result["status"] == "NO_CHANGES"
+    assert result["commit_sha"] == before
+    assert git("rev-parse", "HEAD", cwd=proj).stdout.strip() == before
+    assert result["handoff"] is not None
+    with zipfile.ZipFile(result["handoff"]["zip_path"]) as z:
+        manifest = json.loads(z.read("HANDOFF_MANIFEST.json"))
+    assert manifest["git"]["head_sha"] == before
+
+
+def test_handoff_commit_mismatch_detected(proj, monkeypatch):
+    (proj / "SAFE_MIS.md").write_text("mismatch\n", encoding="utf-8")
+    monkeypatch.setattr(finalize_mod, "_handoff_manifest_sha", lambda *a, **k: "0" * 40)
+    result = finalize_task(proj, task="TASK 005", summary="mismatch", run_tests=False)
+    assert any("HANDOFF_COMMIT_MISMATCH" in e for e in result["errors"])
+
+
+def test_gitignore_included_when_safe(proj, tmp_path):
+    add_commit(proj, ".gitignore", "data/processed/*.bin\n", "add gitignore")
+    out = tmp_path / "out.zip"
+    build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
+    names = set(zipfile.ZipFile(out).namelist())
+    assert ".gitignore" in names
+
+
+def test_state_venv_path_and_updated_at():
+    repo_root = Path(__file__).resolve().parents[1]
+    state_path = repo_root / "docs" / "ai" / "PROJECT_STATE.json"
+    assert state_path.exists()
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["venv"] == r".\.venv\Scripts\python.exe"
+    updated = datetime.fromisoformat(state["updated_at"].replace("Z", "+00:00"))
+    now = datetime.now(timezone.utc)
+    assert updated <= now
+    assert (now - updated).total_seconds() < 60 * 60 * 24
+
+
+def test_untracked_count_uses_all_files(proj):
+    (proj / "dir_a").mkdir()
+    (proj / "dir_a" / "one.py").write_text("1\n", encoding="utf-8")
+    (proj / "dir_a" / "two.py").write_text("2\n", encoding="utf-8")
+    state = git_state(proj)
+    assert state["untracked_count"] == 2

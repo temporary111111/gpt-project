@@ -95,3 +95,34 @@ Established by TASK 004.5.
 *.pt, *.bin, raw/cleaned corpus, and credentials are git-ignored and
 safety-scanned by the finalizer. WHY: repo size, secret safety, and artifact
 protection (see RECOVERY_PROTOCOL MODE 3 limitation).
+
+## D-018: Handoff ZIP = exact committed git HEAD bytes (TASK 004.6)
+AI_LEAD_HANDOFF.zip file members are read from `git show HEAD:<path>`, never
+from arbitrary working-tree bytes; manifest SHA-256s are computed from the
+exact bytes inserted into the ZIP; checkpoint hashes are labeled
+local_untracked_artifact; GIT_STATE.json reports accurate
+tracked_worktree_modified_count / staged_change_count / untracked_count /
+working_tree_clean and flags working_tree_diff_not_included when dirty. WHY:
+a browser-only AI lead must be able to trust the ZIP as a faithful snapshot
+of a specific commit, even if the working tree was dirty when it was built.
+Test-repo consequence: core.autocrlf=false in temp repos so blob bytes are
+deterministic (handoff uses raw blob bytes regardless).
+
+## D-019: Failed tests ABORT finalization (TASK 004.6)
+If the required test suite fails, the finalizer stages/commits/pushes nothing,
+builds no handoff, reports status TESTS_FAILED, and exits non-zero. WHY:
+never claim completion or snapshot a broken state; fail closed. run_test_suite
+also fails closed when the venv python is missing.
+
+## D-020: No-change finalization still builds the handoff (TASK 004.6)
+When there is nothing safe to commit, the finalizer creates NO empty commit,
+reports NO_CHANGES with the current HEAD SHA, skips pushing, and still builds
+and verifies AI_LEAD_HANDOFF.zip from that HEAD. WHY: every meaningful task
+must end with a valid, verifiable handoff regardless of whether new commits
+were needed.
+
+## D-021: Handoff manifest commit SHA == finalizer commit SHA invariant (TASK 004.6)
+After building the ZIP, the finalizer re-opens HANDOFF_MANIFEST.json and
+fails with HANDOFF_COMMIT_MISMATCH if its git head_sha differs from the
+completion commit SHA. WHY: the ZIP must never silently describe a different
+state than the commit the finalizer just produced.

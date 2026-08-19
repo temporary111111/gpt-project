@@ -74,7 +74,8 @@ GPT-style decoder-only Transformer:
 - TASK 003: legal/provenance-aware corpus pipeline + tokenizer_v1 + ~40M-token corpus
 - TASK 003.5: correctness hardening (special IDs, val split, AMP clip, RoPE, RNG resume, checkpoint semantics, param groups, deterministic val)
 - TASK 004: FIRST real from-scratch pretraining (ACCEPTED) — see below
-- TASK 004.5: self-maintaining memory, git, handoff infrastructure (this)
+- TASK 004.5: self-maintaining memory, git, handoff infrastructure
+- TASK 004.6: AI Ops trust / handoff integrity hardening (committed-state handoff, test-failure abort, SHA invariant, no-change finalization, continuity corrections)
 
 ## Important bugs/fixes (verified)
 
@@ -120,6 +121,15 @@ Await the lead architect's review of AI_LEAD_HANDOFF.zip and explicit task text.
 base pretraining (DONE) → chat/instruction tuning (TASK 005) → better
 evaluation → reasoning curriculum → tool-use training → memory → agent/tool
 integration → files/shell/calculator/search → possible larger model scaling
+
+## AI Ops trust rules (TASK 004.6)
+
+- AI_LEAD_HANDOFF.zip is built from EXACT committed git HEAD bytes (`git show HEAD:<path>`), never dirty working-tree bytes; manifest hashes are of the exact bytes in the ZIP; checkpoint hashes are labeled local_untracked_artifact.
+- GIT_STATE.json inside the ZIP carries head_sha, branch, tracked_worktree_modified_count, staged_change_count, untracked_count, working_tree_clean, and a working_tree_diff_not_included flag when dirty.
+- The finalizer ABORTS with TESTS_FAILED (no stage/commit/push/handoff, non-zero exit) when required tests fail.
+- With nothing safe to commit it reports NO_CHANGES, creates no empty commit, and still builds the handoff from current HEAD.
+- The finalizer verifies the handoff manifest commit SHA == its own completion commit SHA (HANDOFF_COMMIT_MISMATCH otherwise).
+- data/processed/corpus_text.txt + dataset_meta.json are regenerable pipeline artifacts and are git-ignored (keeps the tree clean).
 
 ## Git state
 

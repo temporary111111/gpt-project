@@ -21,6 +21,9 @@ data/tokenizer/smoke_*
 # Data: keep provenance manifests and small metadata; NEVER commit corpus
 # binaries or raw/cleaned dumps.
 data/processed/*.bin
+# Regenerable generated pipeline artifacts (run scripts/build_corpus.py)
+data/processed/corpus_text.txt
+data/processed/dataset_meta.json
 data/sources/
 data/raw/
 data/cleaned/

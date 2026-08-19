@@ -1,25 +1,30 @@
 # CURRENT TASK
 
-**TASK 004.5 — SELF-MAINTAINING PROJECT MEMORY, GIT VERSION CONTROL, AND ZERO-MEMORY AI LEAD HANDOFF** (COMPLETE)
+**TASK 004.6 — AI OPS TRUST / HANDOFF INTEGRITY HARDENING** (COMPLETE)
 
 ## Objective
-- Build permanent operational infrastructure so future AI lead architects can take over without chat history.
-- Create docs/ai memory system, AGENTS.md, opencode.json, 00_START_HERE.md.
-- Git safety audit + .gitignore; commit safe state; milestone tag; push if remote available.
-- Build tools/ai_ops/build_handoff.py + tools/ai_ops/finalize_task.py + tests.
-- Produce AI_LEAD_HANDOFF.zip from the committed state.
-- Report docs/ai/reports/TASK_004_5_REPORT.txt and print the mandated summary.
+- Failed required tests must ABORT finalization (no stage/commit/push/handoff; report TESTS_FAILED; non-zero exit).
+- AI_LEAD_HANDOFF.zip must contain EXACT committed git HEAD bytes, never dirty working-tree bytes; manifest hashes from those exact bytes; checkpoint hashes labeled local_untracked_artifact.
+- GIT_STATE.json: head_sha, branch, tracked_worktree_modified_count, staged_change_count, untracked_count, working_tree_clean + prominent working_tree_diff_not_included warning when dirty.
+- Invariant: handoff manifest commit SHA == finalizer completion commit SHA (fail clearly on mismatch).
+- No-change finalization: no empty commit; build handoff from current HEAD; report NO_CHANGES.
+- Continuity corrections: fix venv path typo in PROJECT_STATE.json; real runtime UTC timestamps (never future); include .gitignore in handoff.
+- Investigate dirty-state report (data/processed untracked regenerable artifacts → git-ignored).
+- 13 new regression tests; full suite green; finalize using the corrected finalizer itself.
 
 ## Status
-- DONE: memory system, tools, tests (71/71 pass), git commit + push, milestone tag
-  task-004-pretraining-complete, AI_LEAD_HANDOFF.zip built from committed state.
+- DONE: both tools reworked, .gitignore + PROJECT_STATE.json fixed, 13 new tests,
+  full suite 83/83 pass, docs/ai updated, final report written, finalizer run
+  on its own code, commit + push, AI_LEAD_HANDOFF.zip rebuilt from committed state.
 - Awaiting lead architect review → TASK 005.
 
 ## Outputs
-- 00_START_HERE.md, AGENTS.md, opencode.json, .gitignore (merged).
-- docs/ai/: OPERATING_PROTOCOL, CURRENT_STATE, CURRENT_TASK, NEXT_ACTION, PROJECT_STATE.json, CONTINUITY, DECISIONS, TASK_HISTORY, RECOVERY_PROTOCOL, MODEL_STATUS, reports/TASK_004_REPORT.txt, reports/TASK_004_5_REPORT.txt.
-- tools/ai_ops/build_handoff.py, tools/ai_ops/finalize_task.py.
-- tests/test_ai_ops.py (12 tests).
+- tools/ai_ops/build_handoff.py: committed-state source (git ls-tree/show HEAD), richer git_state, working_tree_diff_not_included, EXTRA_ROOT_FILES (.gitignore).
+- tools/ai_ops/finalize_task.py: TESTS_FAILED abort, NO_CHANGES path, HANDOFF_COMMIT_MISMATCH invariant check, fail-closed run_test_suite.
+- .gitignore: + data/processed/corpus_text.txt, data/processed/dataset_meta.json.
+- docs/ai/PROJECT_STATE.json: venv path fix, programmatic UTC updated_at, handoff_integrity block, last_completed_task = TASK 004.6.
+- tests/test_ai_ops.py: 13 new hardening tests (total 83).
+- docs/ai/reports/TASK_004_6_REPORT.txt.
 
 ## Rules while doing this task
 - Do NOT chat-tune, retrain, or modify best.pt / latest.pt / any .bin.

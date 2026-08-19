@@ -29,7 +29,7 @@ Never ask the user to explain project history if the repository can answer it.
 
 1. Run the required tests: `.\.venv\Scripts\python.exe -m pytest tests -v`.
 2. Update docs/ai/CURRENT_STATE.md.
-3. Update docs/ai/PROJECT_STATE.json.
+3. Update docs/ai/PROJECT_STATE.json (programmatic real UTC timestamp; correct `.\.venv\Scripts\python.exe` path).
 4. Update docs/ai/CURRENT_TASK.md.
 5. Update docs/ai/NEXT_ACTION.md.
 6. Append to docs/ai/TASK_HISTORY.md.
@@ -40,6 +40,17 @@ Never ask the user to explain project history if the repository can answer it.
 10. Git commit (the finalizer does it safely).
 11. Git push when a configured authenticated remote exists (the finalizer does it).
 12. Rebuild AI_LEAD_HANDOFF.zip from the committed state (the finalizer does it).
+
+### Finalizer behavior (TASK 004.6 onward)
+
+- FAILED required tests ABORT finalization: nothing staged/committed/pushed, no
+  handoff, status TESTS_FAILED, non-zero exit. Fix the tests, then rerun.
+- The handoff ZIP contains EXACT committed git HEAD bytes (never dirty working-
+  tree bytes); manifest SHA-256s are of the exact bytes inserted.
+- The finalizer verifies the handoff manifest commit SHA == its own completion
+  commit SHA (HANDOFF_COMMIT_MISMATCH otherwise).
+- With nothing safe to commit: NO_CHANGES, no empty commit, handoff still built
+  from current HEAD, no push needed.
 
 NO TASK IS CONSIDERED COMPLETE UNTIL THIS PROTOCOL IS DONE.
 

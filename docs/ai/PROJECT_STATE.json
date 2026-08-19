@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "project": "chatgpt-like",
-  "updated_at": "2026-08-20T12:00:00Z",
+  "updated_at": "2026-08-19T19:07:23Z",
   "project_root": "C:\\Users\\dev\\Desktop\\chatgpt-like",
   "python": "3.11",
-  "venv": ".\\venv\\Scripts\\python.exe",
+  "venv": ".\\.venv\\Scripts\\python.exe",
   "hardware": {
     "os": "Windows 11",
     "cpu": "AMD Ryzen 5 5600H",
@@ -14,7 +14,7 @@
   },
   "strict_from_scratch": true,
   "current_phase": "awaiting lead architect review of handoff",
-  "last_completed_task": "TASK 004.5",
+  "last_completed_task": "TASK 004.6",
   "current_task": "TASK 005 (pending lead architect task text)",
   "next_planned_task": "TASK 005",
   "model": {
@@ -145,5 +145,16 @@
     "start_here": "00_START_HERE.md",
     "recovery": "docs/ai/RECOVERY_PROTOCOL.md",
     "tests": "tests/test_ai_ops.py"
+  },
+  "handoff_integrity": {
+    "source": "git HEAD committed bytes (never dirty worktree bytes)",
+    "test_failure_policy": "finalizer aborts: TESTS_FAILED, nothing staged/committed/pushed, no handoff",
+    "no_change_policy": "NO_CHANGES: handoff still built from current HEAD, no empty commit",
+    "invariant": "handoff manifest commit SHA == finalizer completion commit SHA",
+    "git_state_fields": [
+      "head_sha", "branch", "tracked_worktree_modified_count",
+      "staged_change_count", "untracked_count", "working_tree_clean"
+    ],
+    "ai_ops_tests": 83
   }
 }

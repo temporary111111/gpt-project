@@ -58,3 +58,12 @@ issues found, final status, artifact paths.
 - **Issues found**: gh CLI not installed (remote push still verified working via origin); unrelated nested repo chatgpt-agent-gateway/ excluded from tracking.
 - **Final status**: COMPLETE.
 - **Artifacts**: AI_LEAD_HANDOFF.zip, docs/ai/reports/TASK_004_5_REPORT.txt.
+
+## TASK 004.6 — AI OPS TRUST / HANDOFF INTEGRITY HARDENING (THIS TASK)
+
+- **Objective**: Make the AI ops tooling trustworthy for a browser-only AI lead: failed tests must abort finalization; handoff must be a snapshot of exact committed git HEAD bytes (never dirty worktree); accurate working-tree reporting; manifest commit == finalizer commit invariant; no-change finalization still builds the handoff; continuity corrections; .gitignore in handoff; dirty-state investigation.
+- **Major outputs**: build_handoff.py now sources every file from `git ls-tree -r` + `git show HEAD:<path>` (exact blob bytes; hashes from those bytes; checkpoint SHA-256 labeled local_untracked_artifact; GIT_STATE.json with head_sha/branch/tracked_worktree_modified_count/staged_change_count/untracked_count/working_tree_clean; working_tree_diff_not_included warning; .gitignore in EXTRA_ROOT_FILES). finalize_task.py now: TESTS_FAILED abort (no stage/commit/push/handoff, non-zero exit), NO_CHANGES path (no empty commit, handoff from current HEAD), HANDOFF_COMMIT_MISMATCH invariant check, fail-closed run_test_suite when venv python missing. .gitignore += data/processed/corpus_text.txt, data/processed/dataset_meta.json (regenerable pipeline artifacts; root cause of the reported dirty state). PROJECT_STATE.json venv typo `.\\venv\\...` → `.\\\\.venv\\Scripts\\python.exe` fixed; updated_at now genuine runtime UTC. tests/test_ai_ops.py: +13 hardening tests.
+- **Validation**: full suite 83/83 passed (70 prior + 13 new); finalizer executed on its own reworked code (tests → commit → push → handoff); handoff manifest commit SHA verified == finalizer commit SHA; ZIP opens (testzip clean); checkpoints omitted but SHA-256 recorded (best.pt ba40ad8c…, latest.pt 8c00ff4d… — unchanged, verified).
+- **Issues found**: CRLF (core.autocrlf) made disk-byte vs blob-byte hashes differ — resolved by hashing the exact bytes inserted into the ZIP (blob bytes); temp-repo tests pin core.autocrlf=false for determinism. `.git` substring deny blocked `.gitignore` — fixed with `.git/` + explicit allowlist.
+- **Final status**: COMPLETE.
+- **Artifacts**: AI_LEAD_HANDOFF.zip, docs/ai/reports/TASK_004_6_REPORT.txt.

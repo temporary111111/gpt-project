@@ -10,4 +10,10 @@
 - Strict from-scratch still applies (no external LLM API as brain; no distillation).
 - test.bin remains sealed.
 
+## Last completed infrastructure note
+- TASK 004.6 hardened the AI ops tooling: failed tests abort finalization;
+  handoff is built from exact committed git HEAD bytes; manifest commit SHA is
+  verified against the completion commit; no-change finalization still builds
+  the handoff; regenerable data/processed text artifacts are git-ignored.
+
 Nothing else is pending. Do not start TASK 005 until the lead architect issues it.
