@@ -1,0 +1,24 @@
+{
+  "input_docs": {
+    "en": 283697,
+    "tl": 49359
+  },
+  "accepted": {
+    "en": 127633,
+    "tl": 31880
+  },
+  "rejected": {
+    "empty": 0,
+    "wrong_language": 3456,
+    "too_long": 9,
+    "repetitive_chars": 2,
+    "boilerplate": 475,
+    "non_prose": 58388,
+    "too_short": 106624,
+    "duplicate_lines": 3035
+  },
+  "dedup_exact": 122,
+  "dedup_near": 1432,
+  "chars": 346135929,
+  "words": 57325583
+}

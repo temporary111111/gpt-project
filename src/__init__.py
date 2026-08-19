@@ -1,0 +1,1 @@
+"""From-scratch local LLM project package."""

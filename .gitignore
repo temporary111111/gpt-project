@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environment
+.venv/
+
+# Training artifacts
+checkpoints/
+data/processed/
+data/tokenizer/
+data/cleaned/
+
+# Large downloaded datasets (keep provenance manifests, not the dumps)
+data/sources/
+data/raw/
+data/manifests/sources.jsonl
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
