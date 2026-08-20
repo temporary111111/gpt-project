@@ -1,0 +1,130 @@
+TASK 004.6 — AI OPS TRUST / HANDOFF INTEGRITY HARDENING
+FINAL REPORT
+============================================================
+
+TASK 004.6 RESULT
+- COMPLETE. All 7 mandated integrity issues implemented, 13 new regression
+  tests added, full suite green (83/83), and the task was finalized USING the
+  corrected finalizer itself (tests -> commit -> push -> handoff -> invariant
+  verification). The working tree is clean.
+
+FAILED-TEST FINALIZER FIX
+- finalize_task.py now ABORTS finalization when the required test suite fails:
+  nothing is staged, committed, pushed, or claimed complete; status
+  TESTS_FAILED; errors list contains TESTS_FAILED; process exits non-zero.
+- run_test_suite fails CLOSED when the venv python is missing (cannot verify
+  tests = treat as failed).
+- Verified by tests: test_failing_pytest_prevents_commit,
+  test_failing_pytest_prevents_push (local bare remote HEAD unchanged).
+
+COMMITTED-STATE HANDOFF FIX
+- build_handoff.py now sources EVERY tracked file member from git itself:
+  `git ls-tree -r --name-only -z HEAD` enumerates the commit, `git show
+  HEAD:<path>` returns the exact blob bytes; the ZIP is written from those
+  bytes, and manifest SHA-256s are computed from the exact bytes inserted
+  (never from arbitrary working-tree disk bytes; CRLF/autocrlf-safe by design).
+- GIT_STATE.json now carries: head_sha, branch, tracked_worktree_modified_count,
+  staged_change_count, untracked_count, working_tree_clean (via
+  `git status --porcelain --untracked-files=all`), remotes, last commit subject.
+- When the working tree is dirty, the manifest sets
+  working_tree_diff_not_included: true as a prominent warning; dirty bytes are
+  never silently mixed in.
+- Checkpoint SHA-256s (best.pt, latest.pt) are recorded as
+  source "local_untracked_artifact" (file never enters the ZIP).
+- Verified by tests: test_handoff_uses_committed_bytes_not_dirty,
+  test_dirty_modifications_not_silently_included,
+  test_dirty_worktree_accurately_reported, test_untracked_count_uses_all_files,
+  test_manifest_hashes_match_stored_bytes.
+
+WORKING TREE INVESTIGATION
+- Root cause of the dirty state reported in the TASK 004.5 manifest
+  (dirty_file_count 1): regenerable pipeline artifacts
+  data/processed/corpus_text.txt and data/processed/dataset_meta.json were
+  untracked and not git-ignored (plain `git status --porcelain` collapses the
+  whole directory into one `?? data/processed/` entry).
+- FIX: both files added to .gitignore (they are regenerable via
+  scripts/build_corpus.py). The working tree is now CLEAN (verified).
+
+NO-CHANGE FINALIZATION
+- When there is nothing safe to commit the finalizer now: creates NO empty
+  commit, reports status NO_CHANGES with the current HEAD SHA, sets
+  push_status nothing_to_push, and STILL builds + verifies
+  AI_LEAD_HANDOFF.zip from that HEAD (manifest SHA == HEAD enforced).
+- Verified by tests: test_finalizer_no_changes_no_empty_commit,
+  test_no_change_finalization_builds_handoff.
+
+CONTINUITY CORRECTIONS
+- PROJECT_STATE.json venv typo `.\\venv\\Scripts\\python.exe` fixed to the
+  correct `.\\\\.venv\\Scripts\\python.exe` (verified by
+  test_state_venv_path_and_updated_at). All other docs were already correct
+  (grep-verified across the whole repo).
+- updated_at is now a genuine runtime UTC timestamp (2026-08-19T19:07:23Z);
+  the previously hard-coded future value (2026-08-20T12:00:00Z) is gone. The
+  test asserts updated_at <= now.
+- .gitignore is now included in the handoff (EXTRA_ROOT_FILES + `.git/` deny
+  substring fix so ".gitignore" is not blocked; verified by
+  test_gitignore_included_when_safe).
+
+HANDOFF CONTENT
+- Files included: 00_START_HERE.md, AGENTS.md, opencode.json, .gitignore,
+  README.md, requirements.txt, docs/ai/**, configs/**, src/**, scripts/**,
+  tests/**, tools/ai_ops/**, checkpoints/pretrain_v1/{metrics.jsonl,
+  run_config.json, generation_samples.txt}, data/tokenizer/tokenizer_v1.*,
+  plus HANDOFF_MANIFEST.json and GIT_STATE.json.
+- Excluded (never): *.pt, *.bin, raw/cleaned/processed corpus, caches, .venv,
+  .git, secrets, previous zips, oversized files (>5 MB).
+- Invariant verified: handoff manifest commit SHA == finalizer completion
+  commit SHA (manifest_commit_verified: true). A mismatch is reported as
+  HANDOFF_COMMIT_MISMATCH (verified by test_handoff_commit_mismatch_detected).
+
+TEST RESULTS
+- Full suite: 83 passed, 0 failed (70 pre-existing + 13 new TASK 004.6 tests).
+- Command: .\.venv\Scripts\python.exe -m pytest tests -v
+- The finalizer itself ran this suite twice (once per finalization run) and
+  both runs passed.
+
+GIT COMMIT
+- Completion commit: 5c2b4f81a6a07bd7e70c5939098209feb404d454
+  "TASK 004.6: AI Ops trust/handoff integrity hardening: committed-state
+  handoff, test-failure abort, SHA invariant, no-change finalization,
+  continuity corrections"
+- Parent: 1d18f2b (TASK 004.5). No force push, no history rewrite.
+
+GIT PUSH
+- Pushed to origin/main (https://github.com/temporary111111/gpt-project.git);
+  remote HEAD verified == local HEAD (ls-remote).
+
+MODEL CHECKPOINT INTEGRITY
+- best.pt and latest.pt were NOT modified. SHA-256 verified before and after
+  the task:
+  - best.pt    (step 36,500): ba40ad8ce0644720d243209049f91791d1163113e55a9fd4e3738326db8b8350
+  - latest.pt  (step 38,379): 8c00ff4d55486930bdb91f321b43040638b793e68b495ded66718ed199620f38
+- train.bin / validation.bin / test.bin untouched; test.bin remains sealed.
+
+AI LEAD RECOVERY VERIFICATION
+- Handoff manifest head_sha == completion commit SHA (verified programmatically
+  by the finalizer; manifest_commit_verified: true).
+- ZIP passes zipfile.testzip() (no corrupt members); 57 members; 433,770 bytes.
+- Entry point 00_START_HERE.md and the whole docs/ai/ tree are inside the ZIP.
+
+ERRORS OR WARNINGS
+- None in the finalization run (errors: [], warnings: []).
+- During development: CRLF/autocrlf discrepancy between disk bytes and blob
+  bytes was discovered and resolved by hashing the exact bytes inserted into
+  the ZIP; temp-repo tests pin core.autocrlf=false for determinism. The
+  `.git` deny substring originally blocked `.gitignore`; fixed with `.git/` +
+  an explicit allowlist.
+
+AI_LEAD_HANDOFF READY
+- Path: C:\Users\dev\Desktop\chatgpt-like\AI_LEAD_HANDOFF.zip
+- Size: 433,770 bytes (rebuilt from the TASK 004.6 completion commit; will be
+  rebuilt again from the report commit with identical content guarantee)
+- Completion commit SHA: 5c2b4f81a6a07bd7e70c5939098209feb404d454
+- Handoff manifest SHA: 5c2b4f81a6a07bd7e70c5939098209feb404d454
+- Working tree: CLEAN
+- Push status: pushed to origin/main
+
+READY FOR TASK 005
+- Lead architect: review AI_LEAD_HANDOFF.zip (00_START_HERE.md first), then
+  issue TASK 005 (chat/instruction tuning on checkpoints/pretrain_v1/best.pt).
+- Implementation engineer will NOT start TASK 005 until ordered.
