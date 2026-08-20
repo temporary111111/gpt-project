@@ -183,7 +183,7 @@ def load_chat_checkpoint(path: str, model: GPTModel, optimizer, scaler,
 
 def write_run_config(args, cfg: ModelConfig, device: torch.device,
                      n_params: dict, steps_per_epoch: int,
-                     total_supervised: int) -> str:
+                     train_ds: SFTDataset) -> str:
     path = args.run_config or os.path.join(args.out_dir, "run_config.json")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     record = {
@@ -217,8 +217,12 @@ def write_run_config(args, cfg: ModelConfig, device: torch.device,
             "params_total": n_params["total"],
             "params_trainable": n_params["trainable"],
             "steps_per_epoch": steps_per_epoch,
-            "train_supervised_tokens": total_supervised,
+            "unique_train_supervised_tokens": train_ds.unique_supervised_tokens(),
+            "effective_train_supervised_tokens": train_ds.effective_supervised_tokens(),
+            "effective_train_examples": len(train_ds),
+            "unique_train_examples": train_ds.n_examples,
             "target_steps": steps_per_epoch * args.max_epochs,
+            "eval_interval": args.eval_interval,
         },
     }
     with open(path, "w", encoding="utf-8") as f:
@@ -269,8 +273,14 @@ def main() -> None:
     steps_per_epoch = max(1, math.ceil(len(train_ds) / (args.batch_size * args.grad_accum)))
     max_iters = steps_per_epoch * args.max_epochs
     warmup = max(args.warmup_steps, int(0.03 * max_iters))
-    print(f"train examples: {len(train_ds)} | val examples: {len(val_ds)} | "
-          f"steps/epoch: {steps_per_epoch} | max_iters: {max_iters} | warmup: {warmup}")
+    # ensure several evaluations per epoch when the epoch is short
+    eval_interval = args.eval_interval
+    if steps_per_epoch < eval_interval * 3:
+        eval_interval = max(50, steps_per_epoch // 3)
+    args.eval_interval = eval_interval
+    print(f"train examples (effective): {len(train_ds)} | unique: {train_ds.n_examples} | "
+          f"val examples: {len(val_ds)} | steps/epoch: {steps_per_epoch} | "
+          f"max_iters: {max_iters} | warmup: {warmup} | eval every {eval_interval}")
 
     source_meta = {
         "sft_train": args.data_sft_train,
@@ -329,8 +339,7 @@ def main() -> None:
                         supervised_tokens_seen, total_tokens_seen, best_sft_val_loss,
                         base_baseline_loss, base_baseline_loss, cfg.to_dict(), args,
                         train_ds, val_ds, collect_rng_state(device), source_meta)
-        write_run_config(args, cfg, device, n_params, steps_per_epoch,
-                         train_ds.n_supervised_tokens())
+        write_run_config(args, cfg, device, n_params, steps_per_epoch, train_ds)
         print(f"initial latest checkpoint written to {os.path.join(args.out_dir, CHECKPOINT_LATEST)}")
 
     model.train()

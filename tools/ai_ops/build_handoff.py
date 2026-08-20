@@ -46,6 +46,16 @@ INCLUDE_ROOTS = [
     "data/tokenizer/tokenizer_v1.model",
     "data/tokenizer/tokenizer_v1.vocab",
     "data/tokenizer/tokenizer_v1_meta.json",
+    # TASK 005 provenance/statistics (small, tracked, MUST be in the handoff)
+    "data/sft/manifests",
+    "data/sft/stats",
+    # TASK 005.1 safe Chat V1 result files (small; checkpoints stay excluded)
+    "checkpoints/chat_v1/run_config.json",
+    "checkpoints/chat_v1/metrics.jsonl",
+    "checkpoints/chat_v1/baseline_chat_samples.txt",
+    "checkpoints/chat_v1/chat_comparison.txt",
+    "checkpoints/chat_v1/eval_metrics.json",
+    "checkpoints/chat_v1/post_sft_eval_metrics.json",
 ]
 
 # Small root-level operational files that should be included when tracked.
@@ -54,11 +64,15 @@ EXTRA_ROOT_FILES = [".gitignore"]
 ARTIFACT_OMIT_LIST = [
     "checkpoints/pretrain_v1/best.pt",
     "checkpoints/pretrain_v1/latest.pt",
+    "checkpoints/chat_v1/best.pt",
+    "checkpoints/chat_v1/latest.pt",
 ]
 
 DENY_SUBSTRINGS = [
     ".git/", ".venv", "__pycache__", ".pytest_cache",
     "data/sources", "data/raw", "data/cleaned", "data/processed",
+    # TASK 005 raw downloads and large processed SFT corpus are NEVER included
+    "data/sft/raw", "data/sft/processed",
 ]
 
 DENY_SUFFIXES = (".pyc", ".pyo", ".pt", ".bin", ".tmp", ".zip", ".key", ".pem", ".env")

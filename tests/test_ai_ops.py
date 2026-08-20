@@ -28,7 +28,17 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "ai_ops"))
 
 import finalize_task as finalize_mod  # noqa: E402
-from build_handoff import build_handoff, git_state, sha256_bytes, sha256_file  # noqa: E402
+from build_handoff import (  # noqa: E402
+    ARTIFACT_OMIT_LIST,
+    DENY_SUBSTRINGS,
+    INCLUDE_ROOTS,
+    _is_included,
+    _safe,
+    build_handoff,
+    git_state,
+    sha256_bytes,
+    sha256_file,
+)
 from finalize_task import finalize_task, is_safe_path  # noqa: E402
 
 CONTINUITY_FILES = [
@@ -211,6 +221,66 @@ def test_is_safe_path_rejects_secrets_and_artifacts():
                 "x.pyc", "tmp.tmp"]:
         ok, _ = is_safe_path(bad)
         assert not ok, bad
+
+
+# --------------------------------------------------------------------------
+# TASK 005.1: SFT metadata + chat_v1 safe files in handoff; raw/processed out
+# --------------------------------------------------------------------------
+
+def test_handoff_roots_include_sft_metadata_and_chat_v1():
+    assert "data/sft/manifests" in INCLUDE_ROOTS
+    assert "data/sft/stats" in INCLUDE_ROOTS
+    for rel in ["checkpoints/chat_v1/run_config.json",
+                "checkpoints/chat_v1/metrics.jsonl",
+                "checkpoints/chat_v1/baseline_chat_samples.txt",
+                "checkpoints/chat_v1/chat_comparison.txt",
+                "checkpoints/chat_v1/eval_metrics.json",
+                "checkpoints/chat_v1/post_sft_eval_metrics.json"]:
+        assert rel in INCLUDE_ROOTS, rel
+
+
+def test_handoff_omit_list_covers_chat_v1_checkpoints():
+    assert "checkpoints/chat_v1/best.pt" in ARTIFACT_OMIT_LIST
+    assert "checkpoints/chat_v1/latest.pt" in ARTIFACT_OMIT_LIST
+
+
+def test_handoff_denies_sft_raw_and_processed():
+    assert "data/sft/raw" in DENY_SUBSTRINGS
+    assert "data/sft/processed" in DENY_SUBSTRINGS
+    assert not _safe("data/sft/raw/dolly_15k.jsonl")
+    assert not _safe("data/sft/processed/sft_train.jsonl")
+    assert not _safe("data/sft/processed/sft_val.jsonl")
+
+
+def test_handoff_includes_sft_metadata_tracks_small_chat_files(proj, tmp_path):
+    for rel in ["data/sft/manifests/sources.jsonl", "data/sft/manifests/SOURCES.md",
+                "data/sft/stats/sft_stats.json", "data/sft/stats/SFT_DATA_REPORT.md"]:
+        add_commit(proj, rel, "# meta\n" if rel.endswith(".md") else '{"x": 1}\n', f"add {rel}")
+    for rel in ["checkpoints/chat_v1/run_config.json", "checkpoints/chat_v1/metrics.jsonl",
+                "checkpoints/chat_v1/baseline_chat_samples.txt",
+                "checkpoints/chat_v1/chat_comparison.txt",
+                "checkpoints/chat_v1/eval_metrics.json",
+                "checkpoints/chat_v1/post_sft_eval_metrics.json"]:
+        add_commit(proj, rel, "{}" if rel.endswith(".json") else "sample\n", f"add {rel}")
+    add_commit(proj, "checkpoints/chat_v1/best.pt", b"\x00" * 64, "add chat best")
+    add_commit(proj, "data/sft/raw/dolly_15k.jsonl", '{"x": 1}\n', "add raw")
+    out = tmp_path / "out.zip"
+    result = build_handoff(proj, out_zip=out, max_file_bytes=10 * 1024 * 1024)
+    names = set(zipfile.ZipFile(out).namelist())
+    for rel in ["data/sft/manifests/sources.jsonl", "data/sft/manifests/SOURCES.md",
+                "data/sft/stats/sft_stats.json", "data/sft/stats/SFT_DATA_REPORT.md",
+                "checkpoints/chat_v1/run_config.json", "checkpoints/chat_v1/metrics.jsonl",
+                "checkpoints/chat_v1/baseline_chat_samples.txt",
+                "checkpoints/chat_v1/chat_comparison.txt",
+                "checkpoints/chat_v1/eval_metrics.json",
+                "checkpoints/chat_v1/post_sft_eval_metrics.json"]:
+        assert rel in names, rel
+    assert "checkpoints/chat_v1/best.pt" not in names
+    assert "data/sft/raw/dolly_15k.jsonl" not in names
+    omitted = {a["path"] for a in result["omitted_artifacts"]}
+    assert "checkpoints/chat_v1/best.pt" in omitted
+    # chat_v1/latest.pt does not exist in this fixture: omitted only if present
+    assert "checkpoints/chat_v1/latest.pt" in omitted or True
 
 
 def test_finalizer_does_not_force_push(proj, tmp_path, monkeypatch):

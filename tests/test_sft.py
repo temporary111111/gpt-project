@@ -16,8 +16,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from build_sft_dataset import (  # noqa: E402
+    aya_eng_looks_english,
     build_aya_examples,
+    build_dolly_examples,
     build_oasst_examples,
+    build_taskmaster_examples,
+    compute_sampling_weights,
+    cross_source_dedup,
+    exclude_eval_probes,
     norm_text,
     stable_bucket,
     tokenize_example,
@@ -360,3 +366,214 @@ def test_eval_sft_loss_runs(tok, tmp_path):
     ds = SFTDataset(str(tmp_path / "v.jsonl"), batch_size=2, block_size=256, pad_id=1, seed=0, shuffle=False)
     loss = eval_sft_loss(model, ds, iters=5, device=torch.device("cpu"), use_amp=False)
     assert loss > 0 and loss < 20
+
+
+# --------------------------------------------------------------------------
+# TASK 005.1 additions (Dolly, Taskmaster, dedup, gate, sampling, handoff)
+# --------------------------------------------------------------------------
+
+# --- Dolly: deterministic formatting ---
+def test_dolly_formatting_and_empty_reject():
+    rows = [
+        {"id": "0", "instruction": "  What  is  2+2? ", "context": "", "response": "4.", "category": "general"},
+        {"id": "1", "instruction": "Q", "context": "ctx", "response": "A"},
+        {"id": "2", "instruction": "", "context": "", "response": "A"},
+        {"id": "3", "instruction": "Q", "context": "", "response": ""},
+    ]
+    exs = build_dolly_examples(rows)
+    assert len(exs) == 2
+    assert exs[0]["turns"][0][1] == "What is 2+2?"  # normalized, no context
+    assert exs[1]["turns"][0][1] == "Q\n\nctx"  # deterministic separator
+    assert exs[0]["lang"] == "en" and exs[0]["source"] == "dolly"
+    assert exs[0]["split"] in ("train", "val")
+    assert (stable_bucket(exs[0]["id"], 100) < 95) == (exs[0]["split"] == "train")
+
+
+# --- Dolly: overlong target rejected ---
+def test_dolly_overlong_rejected(tok):
+    stats = Counter()
+    ex = build_dolly_examples([{"id": "9", "instruction": "Q", "context": "",
+                                "response": "z" * 500, "category": "g"}])[0]
+    built = tokenize_example(ex, tok, stats, block_size=128)
+    assert built is None
+    assert stats["rejected_target_too_long"] == 1
+
+
+# --- Taskmaster: speaker parsing + assistant target extraction ---
+def test_taskmaster_assistant_extraction():
+    conv = {"id": "c1", "domain": "flights", "split": "train",
+            "utterances": [
+                {"speaker": "user", "text": "hi"},
+                {"speaker": "assistant", "text": "hello"},
+                {"speaker": "user", "text": "book a flight"},
+                {"speaker": "assistant", "text": "where to?"},
+                {"speaker": "user", "text": "manila"},
+                {"speaker": "assistant", "text": "done"},
+            ]}
+    exs, _ = build_taskmaster_examples([conv])
+    assert len(exs) == 3  # 3 assistant turns <= cap
+    for ex in exs:
+        assert ex["turns"][-1][0] == "assistant"
+        assert ex["split"] == "train"
+        assert ex["source"] == "taskmaster1"
+        assert ex["turns"][0][0] == "user"
+
+
+# --- Taskmaster: max 4 targets per conversation, deterministic coverage ---
+def test_taskmaster_max4_cap_deterministic():
+    utts = []
+    for i in range(20):
+        utts.append({"speaker": "user", "text": f"u{i}"})
+        utts.append({"speaker": "assistant", "text": f"a{i}"})
+    conv = {"id": "c2", "domain": "x", "split": "val", "utterances": utts}
+    exs1, s1 = build_taskmaster_examples([conv])
+    exs2, _ = build_taskmaster_examples([conv])
+    assert len(exs1) == len(exs2) == 4
+    assert s1["capped_candidate_turns"] == 16
+    assert [ex["turns"][-1][1] for ex in exs1] == [ex["turns"][-1][1] for ex in exs2]
+    # deterministic even coverage: first and last assistant turns included
+    targets = [ex["turns"][-1][1] for ex in exs1]
+    assert targets[0] == "a0" and targets[-1] == "a19"
+
+
+# --- Taskmaster: conversation never crosses splits ---
+def test_taskmaster_conv_split_isolation():
+    conv = {"id": "c3", "domain": "x", "split": "val",
+            "utterances": [{"speaker": "user", "text": "u"},
+                           {"speaker": "assistant", "text": "a"},
+                           {"speaker": "user", "text": "u2"},
+                           {"speaker": "assistant", "text": "a2"}]}
+    exs, _ = build_taskmaster_examples([conv])
+    assert len(exs) == 2
+    assert all(ex["split"] == "val" for ex in exs)  # single source of truth per conv
+
+
+# --- Taskmaster: root-not-user rejected ---
+def test_taskmaster_root_not_user():
+    conv = {"id": "c4", "domain": "x", "split": "train",
+            "utterances": [{"speaker": "assistant", "text": "a"},
+                           {"speaker": "user", "text": "u"}]}
+    exs, skipped = build_taskmaster_examples([conv])
+    assert len(exs) == 0
+    assert skipped["root_not_user"] == 1
+
+
+# --- Aya mislabeled-language rows rejected (English-check heuristic) ---
+def test_aya_eng_mislabel_rejection():
+    assert aya_eng_looks_english("What is light reflection?", "Light reflection is the process by which light waves bounce.") is True
+    assert aya_eng_looks_english("Who wrote the classic novel The Mayor of Casterbridge?", "Thomas Hardy.") is True
+    # Somali prompt + Somali target: no English function words in either
+    assert aya_eng_looks_english("Sheeg magacyada gobolada Somalia?",
+                                 "Magacyada gobolada Somalia waa sida hoos ku qoran.") is False
+    # short non-English prompt with long non-English target
+    assert aya_eng_looks_english("Waa maxay AI?",
+                                 "AI waxaa laga soo gaabiyey Artificial Intelligence, waxaana loola jeedaa in caqliga bani-aadam ka la baro mashiino.") is False
+    # English prompt with a code target is NOT rejected
+    assert aya_eng_looks_english("Write a Python program to find the second largest number in a list.",
+                                 "def second_largest(lst): return sorted(lst)[-2]") is True
+    # non-Latin script content
+    assert aya_eng_looks_english("Что такое вода?", "Вода — это жидкость.") is False
+    # short English answer must NOT be rejected
+    assert aya_eng_looks_english("Which animal is the fastest on land?", "cheetah") is True
+
+
+# --- cross-source dedup: pair removed, source pair reported, prompt-only kept ---
+def test_cross_source_dedup():
+    aya = {"source": "aya", "turns": [("user", "Q1"), ("assistant", "A1")]}
+    oasst = {"source": "oasst1", "turns": [("user", "Q1"), ("assistant", "A1")]}  # exact pair dup
+    dolly = {"source": "dolly", "turns": [("user", "Q1"), ("assistant", "A2")]}   # prompt-only dup
+    kept, stats = cross_source_dedup([aya, oasst, dolly])
+    assert len(kept) == 2
+    assert stats["rejected_duplicates"] == 1
+    assert stats["dup_pair_aya|oasst1"] == 1
+    assert stats["prompt_only_duplicates"] == 1
+    assert kept[0]["source"] == "aya"  # first occurrence wins
+
+
+# --- probe exclusion checks ANY user turn (multi-turn) ---
+def test_probe_exclusion_any_user_turn():
+    ex = {"turns": [("user", "Ano ang 2 + 2?"), ("assistant", "A"),
+                    ("user", "next question"), ("assistant", "B")]}
+    kept, rejected = exclude_eval_probes([ex], probes=["Ano ang 2 + 2?"])
+    assert rejected == 1 and kept == []
+
+
+# --- gate: unique tokens only, oversampling never counts ---
+def test_gate_ignores_oversampling():
+    rows = [
+        {"source": "aya", "lang": "fil", "n_supervised": 100},
+        {"source": "aya", "lang": "fil", "n_supervised": 100},
+    ] + [{"source": "dolly", "lang": "en", "n_supervised": 10} for _ in range(180)]
+    sampling, copies = compute_sampling_weights(rows)
+    unique = sum(r["n_supervised"] for r in rows)
+    effective = sum(r["n_supervised"] * copies[r["source"]] for r in rows)
+    assert unique == 2000  # 200 fil + 1800 en
+    assert effective > unique  # sampling inflates effective, not unique
+    assert sampling["effective_fil_share"] >= 0.15  # fil up-weighted to target
+
+
+# --- Filipino sampling weight: up to 4x, effective share -> ~15% ---
+def test_filipino_sampling_weight_cap():
+    rows = [{"source": "aya", "lang": "fil", "n_supervised": 10} for _ in range(1000)]
+    rows += [{"source": "dolly", "lang": "en", "n_supervised": 10} for _ in range(100000)]
+    sampling, copies = compute_sampling_weights(rows)
+    assert copies["aya"] == 4  # capped at FIL_MAX_WEIGHT
+    assert sampling["fil_weight"] == 4.0
+
+
+def test_filipino_sampling_effective_share():
+    # en = 17 * fil tokens -> w = 3 exactly -> effective share = 15%
+    rows = [{"source": "aya", "lang": "fil", "n_supervised": 10} for _ in range(5000)]
+    rows += [{"source": "dolly", "lang": "en", "n_supervised": 10} for _ in range(85000)]
+    sampling, copies = compute_sampling_weights(rows)
+    assert copies["aya"] == 3
+    assert abs(sampling["effective_fil_share"] - 0.15) < 0.001
+
+
+# --- source balance: English source > 50% down-weighted ---
+def test_source_balance_downweight():
+    rows = [{"source": "taskmaster1", "lang": "en", "n_supervised": 10} for _ in range(1000)]
+    rows += [{"source": "dolly", "lang": "en", "n_supervised": 10} for _ in range(100)]
+    sampling, copies = compute_sampling_weights(rows)
+    # dominant source lands at 50% by up-weighting the other English source
+    assert copies["dolly"] == 10
+    eff = sampling["effective_english_source_tokens"]
+    assert abs(eff["taskmaster1"] / (eff["taskmaster1"] + eff["dolly"]) - 0.5) < 0.01
+
+
+# --- SFTDataset: copies -> effective length, deterministic order, resume ---
+def test_sft_dataset_copies_effective_and_resume(tok, tmp_path):
+    e1, l1 = build_example_ids(tok, [("user", "Q?"), ("assistant", "A.")])
+    e2, l2 = build_example_ids(tok, [("user", "Q2?"), ("assistant", "A2.")])
+    write_sft_jsonl(tmp_path / "c.jsonl", [
+        {"id": "e1", "source": "aya", "lang": "fil", "ids": e1, "labels": l1,
+         "n_supervised": 2, "copies": 3},
+        {"id": "e2", "source": "dolly", "lang": "en", "ids": e2, "labels": l2,
+         "n_supervised": 2, "copies": 1},
+    ])
+    ds = SFTDataset(str(tmp_path / "c.jsonl"), batch_size=2, block_size=256,
+                    pad_id=1, seed=42, shuffle=True)
+    assert len(ds) == 4  # 3 copies of e1 + 1 of e2 (effective)
+    assert ds.n_examples == 2  # unique
+    assert ds.unique_supervised_tokens() == 4
+    assert ds.effective_supervised_tokens() == 8
+    st = ds.state_dict()
+    ds.load_state_dict(st)
+    order_after_resume = list(ds._order)
+    assert order_after_resume == st["order"]
+    # deterministic: same seed + same state -> same order
+    ds2 = SFTDataset(str(tmp_path / "c.jsonl"), batch_size=2, block_size=256,
+                     pad_id=1, seed=42, shuffle=True)
+    assert list(ds2._order) == order_after_resume
+
+
+# --- SFTDataset: validation does not expand copies ---
+def test_sft_dataset_val_no_copies(tok, tmp_path):
+    e1, l1 = build_example_ids(tok, [("user", "Q?"), ("assistant", "A.")])
+    write_sft_jsonl(tmp_path / "v.jsonl", [
+        {"id": "e1", "source": "aya", "lang": "fil", "ids": e1, "labels": l1,
+         "n_supervised": 2, "copies": 3}])
+    ds = SFTDataset(str(tmp_path / "v.jsonl"), batch_size=2, block_size=256,
+                    pad_id=1, seed=0, shuffle=False)
+    assert len(ds) == 1
+    assert ds.n_supervised_tokens() == 2  # unique on the val path

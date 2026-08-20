@@ -1,7 +1,8 @@
-"""SFT dataset statistics (TASK 005 Part D/E).
+"""SFT dataset statistics (TASK 005 Part D/E + TASK 005.1 Part L/S).
 
 Prints and optionally rewrites data/sft/stats/sft_stats.json from the current
-processed SFT files. Deterministic.
+processed SFT files, including UNIQUE vs EFFECTIVE (sampling-weighted) metrics
+and the unique supervised-token gate. Deterministic.
 
 Usage:
   .\\.venv\\Scripts\\python.exe scripts\\sft_stats.py
@@ -21,6 +22,8 @@ from src.tokenizer import SentencePieceTokenizer  # noqa: E402
 
 STATS_DIR = ROOT / "data" / "sft" / "stats"
 TOKENIZER_META = ROOT / "data" / "tokenizer" / "tokenizer_v1_meta.json"
+
+GATE_FLOOR = 1_000_000
 
 
 def load(path: Path) -> list:
@@ -46,6 +49,9 @@ def main() -> None:
     def langs(rows):
         return Counter(r["lang"] for r in rows)
 
+    def sources(rows):
+        return Counter(r["source"] for r in rows)
+
     def lang_tokens(rows):
         return {k: sum(r["n_supervised"] for r in rows if r["lang"] == k)
                 for k in sorted(langs(rows))}
@@ -65,16 +71,49 @@ def main() -> None:
                 "target_tokens": tt, "target_unk": t_unk,
                 "target_unk_rate": round(t_unk / max(1, tt), 6)}
 
+    unique_total = sup_tokens(train) + sup_tokens(val)
+    unique_fil = sum(r["n_supervised"] for r in train + val if r["lang"] == "fil")
+    eff_examples = sum(r.get("copies", 1) for r in train)
+    eff_tokens = sum(r["n_supervised"] * r.get("copies", 1) for r in train)
+    eff_fil_tokens = sum(r["n_supervised"] * r.get("copies", 1)
+                         for r in train if r["lang"] == "fil")
+    eff_src_examples = {s: sum(r.get("copies", 1) for r in train if r["source"] == s)
+                        for s in sorted(sources(train))}
+
     stats = {
+        "unique_examples": len(train) + len(val),
         "train_examples": len(train),
         "val_examples": len(val),
+        "unique_supervised_target_tokens": unique_total,
         "train_supervised_target_tokens": sup_tokens(train),
         "val_supervised_target_tokens": sup_tokens(val),
-        "total_supervised_target_tokens": sup_tokens(train) + sup_tokens(val),
+        "unique_fil_target_tokens": unique_fil,
+        "unique_en_target_tokens": unique_total - unique_fil,
         "train_lang_examples": dict(langs(train)),
         "val_lang_examples": dict(langs(val)),
         "train_lang_target_tokens": lang_tokens(train),
         "val_lang_target_tokens": lang_tokens(val),
+        "unique_source_examples": dict(sources(train + val)),
+        "unique_source_target_tokens": {
+            s: sum(r["n_supervised"] for r in train + val if r["source"] == s)
+            for s in sorted(sources(train + val))
+        },
+        "sampling": {
+            "effective_train_examples": eff_examples,
+            "unique_train_examples": len(train),
+            "effective_train_supervised_tokens": eff_tokens,
+            "unique_train_supervised_tokens": sup_tokens(train),
+            "effective_fil_supervised_tokens": eff_fil_tokens,
+            "effective_fil_share": round(eff_fil_tokens / max(1, eff_tokens), 4),
+            "effective_source_examples": eff_src_examples,
+        },
+        "gate": {
+            "floor": GATE_FLOOR,
+            "UNIQUE_SUPERVISED_TARGET_TOKENS": unique_total,
+            "gate_passed": unique_total >= GATE_FLOOR,
+            "note": "unique accepted human tokens BEFORE oversampling; "
+                    "weighted repeats never count toward this gate",
+        },
         "unk": {"train": unk_rate(train), "val": unk_rate(val)},
         "max_length": max(len(r["ids"]) for r in train + val),
     }

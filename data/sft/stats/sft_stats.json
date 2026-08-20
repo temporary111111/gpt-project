@@ -1,46 +1,122 @@
 {
-  "train_examples": 6573,
-  "val_examples": 338,
-  "train_supervised_target_tokens": 594179,
-  "val_supervised_target_tokens": 29878,
-  "total_supervised_target_tokens": 624057,
+  "generated_at": "2026-08-20T03:50:10.905590+00:00",
+  "tokenizer": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\tokenizer\\tokenizer_v1.model",
+  "block_size": 256,
+  "unique_examples": 50776,
+  "train_examples": 43660,
+  "val_examples": 7116,
+  "unique_supervised_target_tokens": 1863853,
+  "train_supervised_target_tokens": 1697262,
+  "val_supervised_target_tokens": 166591,
+  "unique_fil_target_tokens": 51126,
+  "unique_en_target_tokens": 1812727,
   "train_lang_examples": {
-    "eng": 1834,
+    "eng": 1764,
     "fil": 688,
-    "en": 4051
+    "en": 41208
   },
   "val_lang_examples": {
-    "eng": 80,
+    "eng": 75,
     "fil": 41,
-    "en": 217
+    "en": 7000
   },
   "train_lang_target_tokens": {
-    "en": 417121,
-    "eng": 128874,
+    "en": 1523644,
+    "eng": 125434,
     "fil": 48184
   },
   "val_lang_target_tokens": {
-    "en": 22492,
-    "eng": 4444,
+    "en": 159313,
+    "eng": 4336,
     "fil": 2942
   },
-  "unk": {
-    "train": {
-      "prompt_tokens": 303831,
-      "prompt_unk": 280,
-      "prompt_unk_rate": 0.000922,
-      "target_tokens": 594179,
-      "target_unk": 0,
-      "target_unk_rate": 0.0
+  "unique_source_examples": {
+    "aya": 2568,
+    "oasst1": 4266,
+    "dolly": 10926,
+    "taskmaster1": 33016
+  },
+  "unique_source_target_tokens": {
+    "aya": 180896,
+    "dolly": 715354,
+    "oasst1": 439354,
+    "taskmaster1": 528249
+  },
+  "sampling": {
+    "fil_weight": 4.0,
+    "english_source_weights": {
+      "aya": 1.0,
+      "dolly": 1.0,
+      "oasst1": 1.0,
+      "taskmaster1": 1.0
     },
-    "val": {
-      "prompt_tokens": 16275,
-      "prompt_unk": 15,
-      "prompt_unk_rate": 0.000922,
-      "target_tokens": 29878,
-      "target_unk": 0,
-      "target_unk_rate": 0.0
+    "unique_train_examples": 43660,
+    "effective_train_examples": 45724,
+    "unique_train_supervised_tokens": 1697262,
+    "effective_train_supervised_tokens": 1841814,
+    "effective_fil_supervised_tokens": 192736,
+    "effective_fil_share": 0.1046,
+    "effective_source_examples": {
+      "aya": 4516,
+      "dolly": 10370,
+      "oasst1": 4049,
+      "taskmaster1": 26789
     }
   },
-  "max_length": 256
+  "gate": {
+    "floor": 1000000,
+    "UNIQUE_SUPERVISED_TARGET_TOKENS": 1863853,
+    "gate_passed": true,
+    "note": "unique accepted human tokens BEFORE oversampling; weighted repeats never count toward this gate"
+  },
+  "tokenizer_unk": {
+    "prompt_token_count": 5235972,
+    "prompt_unk_count": 1094,
+    "prompt_unk_rate": 0.000209,
+    "target_token_count": 1863853,
+    "target_unk_count": 0,
+    "target_unk_rate": 0.0
+  },
+  "example_percent_with_target_unk": 2.382,
+  "counters": {
+    "raw_aya": 2934,
+    "raw_oasst": 39751,
+    "raw_dolly": 15010,
+    "raw_taskmaster": 13170,
+    "oasst_skipped_root_not_prompter": 13,
+    "tm_skipped_capped_candidate_turns": 104036,
+    "tm_skipped_root_not_user": 18292,
+    "aya_examples": 2934,
+    "oasst_examples": 9409,
+    "dolly_examples": 15010,
+    "taskmaster_examples": 34318,
+    "rejected_aya_eng_mislabel": 104,
+    "rejected_pathological_repeats": 217,
+    "rejected_corrupted_unicode": 3,
+    "after_quality": 61347,
+    "rejected_duplicates": 1160,
+    "dup_pair_aya": 43,
+    "prompt_only_duplicates": 6686,
+    "dup_pair_dolly": 15,
+    "dup_pair_aya|dolly": 2,
+    "dup_pair_dolly|oasst1": 1,
+    "dup_pair_taskmaster1": 1083,
+    "dup_pair_oasst1|taskmaster1": 16,
+    "after_dedup": 60187,
+    "rejected_eval_probes": 24,
+    "after_probe_exclusion": 60163,
+    "rejected_target_too_long": 7954,
+    "rejected_target_unk": 1433,
+    "dropped_oldest_turns": 10756,
+    "final_examples": 50776
+  },
+  "outputs": {
+    "train": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\sft\\processed\\sft_train.jsonl",
+    "val": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\sft\\processed\\sft_val.jsonl"
+  },
+  "leakage_check": {
+    "train_val_id_overlap": 0,
+    "tm_conv_overlap": 0,
+    "oasst_tree_overlap": 0
+  }
 }

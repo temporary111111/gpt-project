@@ -108,27 +108,31 @@ GPT-style decoder-only Transformer:
 
 ## TASK 005 (SFT) state
 
-- Pipeline (tested, 108/108): scripts/acquire_sft_data.py → build_sft_dataset.py → sft_stats.py; src/sft_dataset.py (SFTDataset), src/sft_train.py (pilot gate, retention guards, resume, atomic checkpoints); configs/sft_chat_v1.json + sft_train_v1.json; scripts/evaluate_chat.py (baseline/compare modes); src/chat.py upgraded (real multi-turn terminal chat, EOS + role-marker stop, clear/exit/system).
-- Corpus: Aya rev f9ea0458… (eng+fil original-annotations, 2,934) + OASST1 rev fdf72ae0… (en human-only, 39,751) → 6,911 examples; SUPERVISED TARGET TOKENS 624,057 (train 594,179 / val 29,878); fil 8.2% / Aya-eng 21.4% / OASST-en 70.4%; target unk 0.0. Raw + processed files git-ignored; manifests/stats tracked (SOURCES.md, sources.jsonl, sft_stats.json, SFT_DATA_REPORT.md).
-- Baselines (best.pt, eval-only): BASELINE_PRETRAIN_VAL_LOSS = 3.093633; chat baseline greedy EOS 0.0 / repetition 0.68 / fil-in-fil 0.4 / eng-in-eng 0.5.
-- STOP GATE: 624,057 < 1,000,000 supervised-token floor → NO training started (Part E). checkpoints/chat_v1/ holds only eval outputs; NO chat_v1 .pt files.
-- Decision needed from lead architect: (a) expand human-only corpus, (b) authorize reduced-corpus training, (c) other. See NEXT_ACTION.md.
+- Pipeline (tested, 127/127): scripts/acquire_sft_data.py → build_sft_dataset.py → sft_stats.py; src/sft_dataset.py (SFTDataset, copies/effective sampling), src/sft_train.py (pilot gate, retention guards, resume, atomic checkpoints, dynamic eval interval); configs/sft_chat_v1.json + sft_train_v1.json; scripts/evaluate_chat.py (baseline/compare modes; 6 new held-out multi-turn probes); src/chat.py upgraded (real multi-turn terminal chat, EOS + role-marker stop, clear/exit/system); scripts/audit_sft_samples.py; tools/ai_ops/build_handoff.py Parts J/K (SFT manifests/stats + chat_v1 small files included; chat_v1 best/latest hashed-excluded; data/sft/raw + processed denied).
+- Corpus (TASK 005.1): 4 human-only sources — Aya (rev f9ea0458…, 2,568 ex / 180,896 tok), OASST1 (rev fdf72ae0…, 4,266 / 439,354), Dolly (rev bdd27f4d…, cc-by-sa-3.0, 10,926 / 715,354), Taskmaster-1 (rev d92cb6af…, CC BY 4.0, 33,016 / 528,249) → 50,776 examples; UNIQUE_SUPERVISED_TARGET_TOKENS = 1,863,853 (train 1,697,262 / val 166,591) — GATE PASSED (>= 1M). fil unique 51,126 (2.7%); effective fil share 10.5% at 4x cap (D-026); English weights 1.0 (no source >50%, D-027); aya-eng mislabel filter rejected 104 rows (D-028); cross-source exact dups removed 1,160; target unk 0.0; leakage all 0 (incl. TM conversation isolation).
+- Baselines (best.pt, eval-only, unchanged): BASELINE_PRETRAIN_VAL_LOSS = 3.093633 (eligible ≤ 3.557678; hard stop > 3.712360); chat baseline greedy EOS 0.0 / repetition 0.68 / fil-in-fil 0.4 / eng-in-eng 0.5.
+- Base checkpoint re-verified 2026-08-20: best.pt SHA-256 ba40ad8c…, latest.pt 8c00ff4d… — unchanged. checkpoints/chat_v1/ still has NO .pt (training not started).
+- NEXT: SFT pilot (~200 steps, run 1 --max-epochs 1) → retention eligibility → full SFT (run 2 --init-from resume --max-epochs 3, early stop 4 evals) → post-SFT eval (evaluate_chat.py --mode compare; 20 probes + Bruno + 6 new multi-turn) → interactive chat → report + finalize + tag task-005-chat-v1-complete on success.
 
 ## Current limitations
 
-- base model NOT chat/instruction tuned (SFT blocked by Part E token floor; no chat_v1 weights exist)
+- base model NOT chat/instruction tuned (SFT training not yet run; no chat_v1 weights exist)
 - repetition, especially greedy decoding
 - fluent factual hallucination
 - small-model reasoning limitations
 - rare replacement-character output for OOV symbols (tokenizer coverage)
-- SFT corpus is English-heavy (91.8%): Filipino only 8.2% of supervised tokens (natural ratio, per D-022)
+- Filipino only 10.5% of EFFECTIVE supervised tokens (4x cap reached; natural ratio, per D-022/D-026)
 
 ## Next planned stage
 
-TASK 005 follow-up: lead architect decides the corpus path (expand human-only
-data vs. authorize reduced-corpus SFT). If authorized, run
-scripts/build_sft_dataset.py → src/sft_train.py → evaluate_chat.py --mode
-compare, then chat_v1/best.pt verification and milestone tag on success.
+TASK 005.1 training phase (in progress): SFT pilot (~200 optimizer steps,
+retention eligibility ≤ 3.557678 / hard stop > 3.712360), then full SFT
+(`--init-from resume --max-epochs 3`, early stop after 4 consecutive val
+evals without improvement), then post-SFT evaluation
+(`scripts/evaluate_chat.py --mode compare` — 20 fixed probes greedy+sampled,
+Bruno + 6 new held-out multi-turn probes, EOS/repetition/role-leakage,
+fil-in-fil & eng-in-eng), then interactive chat verification, report,
+finalize, and milestone tag `task-005-chat-v1-complete` on success.
 
 ## Long-term roadmap
 

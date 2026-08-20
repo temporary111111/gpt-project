@@ -68,6 +68,13 @@ ALL_PROMPTS = FILIPINO_PROMPTS + ENGLISH_PROMPTS
 MULTI_TURN_PROBES = [
     ("Pangalan ng aso ko ay Bruno.", "Ano nga ang pangalan ng aso ko?"),
     ("My dog's name is Bruno.", "What is my dog's name?"),
+    # TASK 005.1 Part U NEW held-out multi-turn probes (never in training)
+    ("Kumain ako ng saging kanina.", "Ano ang kinain ko?"),
+    ("Ang paborito kong kulay ay berde.", "Anong kulay ang paborito ko?"),
+    ("Nakatira ako sa Maynila.", "Saan ako nakatira?"),
+    ("I visited Paris last summer.", "Where did I go last summer?"),
+    ("My favorite food is pizza.", "What is my favorite food?"),
+    ("I have two cats named Oreo and Luna.", "What are my cats' names?"),
 ]
 
 EVAL_SEED = 42

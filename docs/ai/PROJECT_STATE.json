@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "project": "chatgpt-like",
-  "updated_at": "2026-08-20T02:56:41Z",
+  "updated_at": "2026-08-20T04:22:08Z",
   "project_root": "C:\\Users\\dev\\Desktop\\chatgpt-like",
   "python": "3.11",
   "venv": ".\\.venv\\Scripts\\python.exe",
@@ -13,10 +13,10 @@
     "vram_gb": 4
   },
   "strict_from_scratch": true,
-  "current_phase": "TASK 005 STOP-gate delivered; awaiting lead architect corpus decision",
-  "last_completed_task": "TASK 005 (pipeline; training STOPPED at Part E gate)",
-  "current_task": "TASK 005 (awaiting corpus-path decision: expand vs. reduced-corpus authorization)",
-  "next_planned_task": "TASK 005 follow-up (SFT training if authorized)",
+  "current_phase": "TASK 005.1 pipeline phase DONE; TOKEN GATE PASSED (1,863,853 >= 1M); pilot+full SFT training next",
+  "last_completed_task": "TASK 005 (pipeline; training STOPPED at Part E gate 624,057 < 1M)",
+  "current_task": "TASK 005.1 (Expand Human SFT Corpus + Complete Chat V1 Training) — pipeline DONE, training phase",
+  "next_planned_task": "TASK 005.1 training phase (pilot -> full SFT -> post-SFT eval -> tag)",
   "model": {
     "name": "GPT-style decoder-only Transformer",
     "params_total": 29270528,
@@ -108,13 +108,13 @@
       "tokens_seen": 314400768
     },
     "chat_v1": {
-      "note": "NO .pt files exist (training STOPPED at Part E gate); only baseline eval outputs",
+      "note": "NO .pt files exist (training NOT yet started); baseline eval outputs only",
       "baseline_chat_samples": "checkpoints/chat_v1/baseline_chat_samples.txt",
       "eval_metrics": "checkpoints/chat_v1/eval_metrics.json"
     }
   },
   "sft": {
-    "task": "TASK 005 (pipeline complete; training NOT started)",
+    "task": "TASK 005.1 pipeline complete; training NOT yet started",
     "sources": [
       {
         "repo": "CohereLabs/aya_dataset",
@@ -129,23 +129,63 @@
         "license": "Apache-2.0",
         "accepted": 39751,
         "filter": "en human-only (synthetic/model/deleted/review/label filters); rank 0 preferred"
+      },
+      {
+        "repo": "databricks/databricks-dolly-15k",
+        "revision": "bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a",
+        "license": "cc-by-sa-3.0",
+        "accepted": 15010,
+        "filter": "human instruction/response; heavy filter in build"
+      },
+      {
+        "repo": "google-research-datasets/Taskmaster (TM-1-2019)",
+        "revision": "d92cb6af3005f1dc09c39e75e7daf4a04905e00b",
+        "license": "cc-by-4.0",
+        "accepted": 13170,
+        "filter": "conversation-level splits (official CSVs); <=4 targets/conv deterministic"
       }
     ],
-    "final_examples": 6911,
-    "train_examples": 6573,
-    "val_examples": 338,
-    "supervised_target_tokens_total": 624057,
-    "supervised_target_tokens_train": 594179,
-    "supervised_target_tokens_val": 29878,
-    "language_mix_supervised": {
-      "oasst_en": 439613,
-      "aya_eng": 133318,
-      "aya_fil": 51126
+    "final_examples": 50776,
+    "train_examples": 43660,
+    "val_examples": 7116,
+    "unique_supervised_target_tokens": 1863853,
+    "supervised_target_tokens_train": 1697262,
+    "supervised_target_tokens_val": 166591,
+    "unique_fil_target_tokens": 51126,
+    "unique_en_target_tokens": 1812727,
+    "source_mix_unique_tokens": {
+      "aya": 180896,
+      "dolly": 715354,
+      "oasst1": 439354,
+      "taskmaster1": 528249
+    },
+    "sampling": {
+      "fil_weight": 4.0,
+      "english_source_weights": {
+        "aya": 1.0,
+        "dolly": 1.0,
+        "oasst1": 1.0,
+        "taskmaster1": 1.0
+      },
+      "effective_train_examples": 45724,
+      "effective_train_supervised_tokens": 1841814,
+      "effective_fil_share": 0.1046
+    },
+    "gate": {
+      "floor": 1000000,
+      "UNIQUE_SUPERVISED_TARGET_TOKENS": 1863853,
+      "gate_passed": true
     },
     "target_unk_rate": 0.0,
-    "prompt_unk_rate": 0.000922,
-    "stop_gate": "624057 < 1000000 floor -> training NOT started (Part E)",
+    "prompt_unk_rate_train": 0.00023,
+    "quality_audit": "150 samples (30 x 5 groups) reviewed; all passed deterministic rules",
     "baseline_pretrain_val_loss": 3.093633,
+    "retention": {
+      "eligibility_factor": 1.15,
+      "eligibility_max": 3.557678,
+      "hard_stop_factor": 1.2,
+      "hard_stop_above": 3.71236
+    },
     "pipeline": [
       "scripts/acquire_sft_data.py",
       "scripts/build_sft_dataset.py",
@@ -157,8 +197,8 @@
     "report": "data/sft/stats/SFT_DATA_REPORT.md"
   },
   "known_limitations": [
-    "base model only, not chat/instruction tuned (SFT blocked by Part E token floor)",
-    "SFT corpus below 1M supervised-token floor (624,057); Filipino only 8.2% (natural ratio)",
+    "base model only, not chat/instruction tuned (SFT training not yet run)",
+    "Filipino only 10.5% of EFFECTIVE supervised tokens (4x cap reached; natural ratio)",
     "repetition, especially greedy decoding",
     "fluent factual hallucination",
     "small-model reasoning limitations",

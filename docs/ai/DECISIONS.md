@@ -144,3 +144,48 @@ USER tokens — caught by the mandated test suite (test_user_tokens_masked),
 fixed, and the dataset rebuilt. WHY: a shifted mask silently trains the model
 to predict user text; the mandated Part W tests exist precisely to catch this
 class of error.
+
+## D-024: TASK 005.1 corpus expansion — Dolly 15K + Taskmaster-1 only (Part A/B)
+The expanded corpus adds Databricks Dolly 15K (cc-by-sa-3.0, revision
+bdd27f4d…) and Google's Taskmaster-1 (CC BY 4.0, official repo rev
+d92cb6af…), both human-generated. No Alpaca/ShareGPT/Vicuna-style synthetic
+or LLM-generated data is ever allowed. WHY: strict from-scratch + provenance
+cleanliness; 4 human-only sources provide the volume needed to pass the 1M
+token gate without fabrication.
+
+## D-025: Taskmaster assistant turns become targets, capped at 4 per conversation
+Every accepted assistant turn is a candidate SFT target; up to 4 targets per
+conversation are chosen deterministically across the conversation (even
+coverage start/middle/end). Earlier assistant turns are context-masked (only
+the final assistant response of each example is supervised). Splits are by
+CONVERSATION ID (official dialog-ID CSVs for self-dialogs; deterministic
+95/5 bucket for woz) — a conversation never crosses train/val. WHY:
+task-oriented dialogue is mostly filler confirmation turns; capping keeps
+each conversation's signal dense and prevents one domain from dominating.
+
+## D-026: Filipino sampling capped at 4x; effective share lands at 10.5% (Part G)
+Filipino examples get a sampling multiplier computed exactly to reach the
+15% effective-token target, clamped to [1, 4.0]. With only 51,126 unique fil
+tokens the cap is reached and the effective share is 10.5% — the maximum
+achievable without fabrication/translation (which remain forbidden). WHY:
+the 15–25% band is a target, not a gate; repetition beyond 4x would distort
+the epoch distribution.
+
+## D-027: English source balance via up-weighting the other English sources (Part H)
+If any English source exceeds 50% of effective English target tokens, the
+OTHER English sources are deterministically up-weighted (dominant/others)
+iteratively until no source exceeds 50%. WHY: integer "copies" cannot
+down-weight a source below 1 copy; up-weighting others is mathematically
+equivalent to down-weighting the dominant source and satisfies the task's
+"or equivalently" clause. (In the final corpus no source exceeded 50% —
+largest share dolly 39.5% — so weights stayed 1.0.)
+
+## D-028: Aya "eng" mislabeled rows rejected deterministically (Part I quality fix)
+Some Aya `language_code == "eng"` rows contain Somali/Indonesian/Basque/
+German/Turkish text. A deterministic English-check heuristic rejects rows
+with non-Latin script, or a >=4-word prompt AND target both containing <2
+English function words, or a >=6-word target with a <2-word-hit prompt
+(catches short mislabeled prompts). 104 rows rejected; verified 0 non-Latin
+and 0 Somali survivors in the final corpus. WHY: mislabeled non-English
+content would pollute the English chat signal; the check is deterministic,
+tested, and never rewrites data.

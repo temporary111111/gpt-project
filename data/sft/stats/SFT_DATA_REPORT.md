@@ -1,90 +1,134 @@
-# SFT DATA REPORT — TASK 005 (chat/instruction tuning V1)
+# SFT DATA REPORT — TASK 005.1 (expanded chat/instruction tuning V1 corpus)
 
 Report generated: 2026-08-20 (UTC). Machine-readable stats:
 `data/sft/stats/sft_stats.json`. Provenance: `data/sft/manifests/sources.jsonl`.
+Quality audit samples: `data/sft/stats/quality_audit_samples.txt`.
 
 ## 1. Dataset build pipeline
 
 `scripts/acquire_sft_data.py` (download/filter/raw dump) →
-`scripts/build_sft_dataset.py` (normalize / dedup / split / chat-format /
-assistant-only labels) → `scripts/sft_stats.py` (aggregate stats).
+`scripts/build_sft_dataset.py` (normalize / English-check / dedup / split /
+chat-format / assistant-only labels / sampling weights) →
+`scripts/sft_stats.py` (aggregate stats).
 
 Build command used:
 
 ```
-.\.venv\Scripts\python.exe scripts\build_sft_dataset.py --max-target-unk-rate 0.0
+.\.venv\Scripts\python.exe scripts\build_sft_dataset.py
 ```
 
-`--max-target-unk-rate 0.0` rejects EVERY example whose assistant target
-contains an unknown token (the tokenizer is expected to cover the corpus well).
+`--max-target-unk-rate` default 0.0: EVERY example whose assistant target
+contains an unknown token is rejected (target unk rate in the final corpus is
+0.0).
 
-## 2. Filtering counters (final build)
+## 2. Sources (all human-only; see manifests/SOURCES.md for provenance)
+
+| Source | License | Acquired | Final examples | Unique supervised target tokens |
+|---|---|---|---|---|
+| Aya (eng+fil originals) | Apache-2.0 | 2,934 | 2,568 | 180,896 |
+| OASST1 (en human) | Apache-2.0 | 39,751 msgs | 4,266 | 439,354 |
+| Dolly 15K | cc-by-sa-3.0 | 15,010 | 10,926 | 715,354 |
+| Taskmaster-1 | CC BY 4.0 | 13,170 convs | 33,016 | 528,249 |
+| **Total** | | | **50,776** | **1,863,853** |
+
+## 3. Filtering counters (final build)
 
 | Counter | Value |
 |---|---|
-| aya_raw (accepted at acquisition) | 2,934 |
-| oasst_raw (accepted at acquisition) | 39,751 |
-| aya_examples (after build) | 2,934 |
-| oasst_examples (after message-tree assembly) | 9,409 |
+| aya_raw / oasst_raw / dolly_raw / taskmaster_raw | 2,934 / 39,751 / 15,010 / 13,170 |
+| aya_examples / oasst_examples / dolly_examples / taskmaster_examples | 2,934 / 9,409 / 15,010 / 34,318 |
 | oasst_skipped_root_not_prompter | 13 |
-| after_quality (empty/corrupted-unicode/pathological rejects) | 12,288 |
-| rejected_pathological_repeats | 55 |
-| rejected_duplicates (exact (prompt,target) across sources) | 43 |
-| after_dedup | 12,245 |
-| rejected_eval_probes (prompts reserved for evaluation) | 3 |
-| after_probe_exclusion | 12,242 |
-| rejected_target_too_long (cannot fit final user turn + target in 256 ctx) | 4,078 |
-| rejected_target_unk (target contains <unk>, rate floor 0.0) | 1,253 |
-| dropped_oldest_turns (older turns evicted to keep final turn) | 1,748 |
-| **final_examples** | **6,911** |
+| tm_skipped_capped_candidate_turns / tm_skipped_root_not_user | 104,036 / 18,292 |
+| rejected_aya_eng_mislabel (mislabeled non-English Aya eng rows) | 104 |
+| rejected_pathological_repeats / rejected_corrupted_unicode | 217 / 3 |
+| after_quality | 61,347 |
+| rejected_duplicates (exact normalized (prompt,target), by source pair) | 1,160 |
+| dup_pair detail | aya 43, dolly 15, taskmaster1 1,083, aya\|dolly 2, dolly\|oasst1 1, oasst1\|taskmaster1 16 |
+| prompt_only_duplicates (reported, NOT merged) | 6,686 |
+| rejected_eval_probes (any user turn matches a held-out eval prompt) | 24 |
+| rejected_target_too_long (final user turn + target cannot fit 256 ctx) | 7,954 |
+| rejected_target_unk (target contains <unk>) | 1,433 |
+| dropped_oldest_turns (older complete turns evicted to keep final turn) | 10,756 |
+| **final_examples** | **50,776** |
 
-## 3. Final corpus statistics
+## 4. Final corpus statistics (UNIQUE, before sampling)
 
 | Metric | Train | Validation | Total |
 |---|---|---|---|
-| Examples | 6,573 | 338 | 6,911 |
-| Supervised target tokens | 594,179 | 29,878 | **624,057** |
+| Examples | 43,660 | 7,116 | 50,776 |
+| Supervised target tokens | 1,697,262 | 166,591 | **1,863,853** |
+| Filipino target tokens | 48,184 | 2,942 | 51,126 |
+| English target tokens | 1,649,078 | 163,649 | 1,812,727 |
 
-### Language mix by SUPERVISED TARGET TOKENS
+### Unique language mix by SUPERVISED TARGET TOKENS
 
-| Language | Train | Validation | Total | Share |
-|---|---|---|---|---|
-| en (OASST1) | 417,121 | 22,492 | 439,613 | 70.4% |
-| eng (Aya) | 128,874 | 4,444 | 133,318 | 21.4% |
-| fil (Aya) | 48,184 | 2,942 | 51,126 | 8.2% |
+| Language | Tokens | Share |
+|---|---|---|
+| en (OASST1 + Dolly + Taskmaster) | 1,682,957 | 90.3% |
+| eng (Aya) | 129,770 | 7.0% |
+| fil (Aya) | 51,126 | 2.7% |
 
-The English-dominant ratio is the natural ratio of the human datasets.
-Per the task rules, no fabrication/oversampling beyond 2x was used to force a
-50/50 split; quality and provenance were prioritized over ratio.
+### Unique source mix by SUPERVISED TARGET TOKENS (of English 1,812,727)
 
-### Tokenizer quality (tokenizer_v1, vocab 8000)
+| Source | Tokens | Share of English |
+|---|---|---|
+| dolly | 715,354 | 39.5% |
+| taskmaster1 | 528,249 | 29.1% |
+| oasst1 | 439,354 | 24.2% |
+| aya (eng) | 129,770 | 7.2% |
+
+No English source exceeds 50% of effective English tokens, so no source
+down-weighting was required (`english_source_weights` all 1.0).
+
+## 5. Sampling weights (EFFECTIVE training mix; SAMPLING ONLY)
+
+| Metric | Value |
+|---|---|
+| fil_weight | 4.0 (cap reached; no fabrication/translation) |
+| effective_train_examples | 45,724 |
+| unique_train_examples | 43,660 |
+| effective_train_supervised_tokens | 1,841,814 |
+| effective_fil_supervised_tokens | 192,736 |
+| **effective_fil_share** | **0.1046 (10.5%; max achievable at the 4x cap)** |
+
+Weights are stored per example as `weight` (float) + `copies` (integer) in
+`data/sft/processed/sft_train.jsonl`; the training epoch order repeats each
+example `copies` times, then shuffles deterministically (seed 1337). The
+effective numbers NEVER count toward the token gate.
+
+## 6. Tokenizer quality (tokenizer_v1, vocab 8000) — FINAL corpus
 
 | Metric | Train | Validation |
 |---|---|---|
-| prompt unk rate | 0.000922 | 0.000922 |
+| prompt unk rate | 0.000230 | 0.000113 |
 | target unk rate | 0.0 | 0.0 |
 
-After the 0.0 unk floor, no target contains <unk>. Remaining prompt <unk>s are
-rare OOV symbols in user prompts; the assistant targets are fully covered.
+All targets containing <unk> were rejected (1,433); remaining prompt <unk>s
+are rare OOV symbols in user prompts.
 
-## 4. Format, masking, truncation
+## 7. Format, masking, truncation, splits
 
 - Chat format per target: `<bos><user>U<assistant>A<eos>` (single or multi-turn).
 - Multi-turn: earlier complete turns are context; ONLY the final assistant
-  target + EOS receive supervised labels.
-- labels = -100 for BOS, user tokens, context turns, role markers, padding.
-- Context length 256; the final user turn + final assistant target are always
-  kept; older turns are dropped from the oldest first when the window fills.
-- Deterministic split: Aya split by stable sha256 bucket (95/5); OASST uses the
-  source-provided train/validation splits with `validation` normalized to
-  `val` (no message_tree_id crosses). Zero train/val leakage verified by test.
+  target + EOS receive supervised labels; labels = -100 elsewhere.
+- Context length 256; final user turn + target always kept; older turns dropped
+  oldest-first.
+- Splits: Aya + Dolly by stable sha256 bucket 95/5; OASST source-provided
+  (no message_tree_id crosses — verified 0 overlap); Taskmaster by official
+  conversation-ID CSVs / deterministic woz bucket (verified 0 conversation
+  crosses). Zero train/val leakage: `leakage_check` all 0.
 
-## 5. STOP gate (TASK 005 Part E)
+## 8. TOKEN GATE (TASK 005.1 Part D/M)
 
-**624,057 usable supervised target tokens < 1,000,000 floor.**
+**UNIQUE_SUPERVISED_TARGET_TOKENS = 1,863,853 >= 1,000,000 floor => GATE
+PASSED.** (Preferred band 1.2M–3M; hard ceiling 8M — satisfied.) Training
+proceeds automatically per Part M.
 
-Per Part E: "If less than 1M usable supervised target tokens exist after
-filtering: STOP BEFORE FULL TRAINING and report to the lead architect."
+## 9. Quality audit (TASK 005.1 Part I)
 
-=> FULL SFT TRAINING WAS NOT STARTED. This report accompanies the
-TASK 005 STOP-gate report to the lead architect.
+150 deterministic samples (30 each: Aya fil, Aya eng, OASST, Dolly,
+Taskmaster) were reviewed manually. All passed the deterministic quality
+rules; no example was rewritten. Noted human-data quirks (kept as-is per Part
+I): a few OASST playful-dialect answers, a few Dolly factual oddities
+(e.g. "Bubal hartebeest is domesticated"). Full dump:
+`data/sft/stats/quality_audit_samples.txt`.
