@@ -1,31 +1,43 @@
 # CURRENT TASK
 
-**TASK 004.6 — AI OPS TRUST / HANDOFF INTEGRITY HARDENING** (COMPLETE)
+**TASK 005 — CHAT / INSTRUCTION TUNING V1** (STOPPED BEFORE FULL TRAINING — Part E gate)
 
 ## Objective
-- Failed required tests must ABORT finalization (no stage/commit/push/handoff; report TESTS_FAILED; non-zero exit).
-- AI_LEAD_HANDOFF.zip must contain EXACT committed git HEAD bytes, never dirty working-tree bytes; manifest hashes from those exact bytes; checkpoint hashes labeled local_untracked_artifact.
-- GIT_STATE.json: head_sha, branch, tracked_worktree_modified_count, staged_change_count, untracked_count, working_tree_clean + prominent working_tree_diff_not_included warning when dirty.
-- Invariant: handoff manifest commit SHA == finalizer completion commit SHA (fail clearly on mismatch).
-- No-change finalization: no empty commit; build handoff from current HEAD; report NO_CHANGES.
-- Continuity corrections: fix venv path typo in PROJECT_STATE.json; real runtime UTC timestamps (never future); include .gitignore in handoff.
-- Investigate dirty-state report (data/processed untracked regenerable artifacts → git-ignored).
-- 13 new regression tests; full suite green; finalize using the corrected finalizer itself.
+SFT the accepted base model (checkpoints/pretrain_v1/best.pt) into a basic
+English + Filipino chat assistant using ONLY human-written data (Aya eng/fil
+original-annotations + English OASST1 human-only), with full provenance,
+deterministic splits, assistant-only loss masking, retention guards, pilot
+gate, 22 mandated tests, chat.py upgrade, report, and finalization.
+
+## Part E STOP gate (HIT)
+**624,057 usable supervised target tokens < 1,000,000 floor** →
+STOP BEFORE FULL TRAINING and report to the lead architect. No training,
+no pilot, no milestone tag.
 
 ## Status
-- DONE: both tools reworked, .gitignore + PROJECT_STATE.json fixed, 13 new tests,
-  full suite 83/83 pass, docs/ai updated, final report written, finalizer run
-  on its own code, commit + push, AI_LEAD_HANDOFF.zip rebuilt from committed state.
-- Awaiting lead architect review → TASK 005.
+- DONE: acquisition + build pipeline (scripts/acquire_sft_data.py,
+  scripts/build_sft_dataset.py, scripts/sft_stats.py, src/sft_dataset.py,
+  src/sft_train.py, configs/*, scripts/evaluate_chat.py), provenance
+  (sources.jsonl, SOURCES.md), SFT_DATA_REPORT.md, Part K baseline chat eval,
+  Part L baseline base-LM validation loss (3.093633), src/chat.py upgrade
+  (real multi-turn terminal chat), 25 new tests (22 mandated + 3),
+  108/108 full suite, Part U review (90/90 samples passed), docs/ai updated,
+  TASK_005_REPORT.txt written.
+- 2 real bugs found by mandated tests and FIXED: (1) assistant-label shift
+  onto user tokens (labels shorter than ids), (2) OASST validation→train
+  split leak (217 examples). Dataset rebuilt after both fixes.
+- Awaiting lead architect decision: expand corpus vs. authorize reduced-corpus
+  training vs. other direction.
 
 ## Outputs
-- tools/ai_ops/build_handoff.py: committed-state source (git ls-tree/show HEAD), richer git_state, working_tree_diff_not_included, EXTRA_ROOT_FILES (.gitignore).
-- tools/ai_ops/finalize_task.py: TESTS_FAILED abort, NO_CHANGES path, HANDOFF_COMMIT_MISMATCH invariant check, fail-closed run_test_suite.
-- .gitignore: + data/processed/corpus_text.txt, data/processed/dataset_meta.json.
-- docs/ai/PROJECT_STATE.json: venv path fix, programmatic UTC updated_at, handoff_integrity block, last_completed_task = TASK 004.6.
-- tests/test_ai_ops.py: 13 new hardening tests (total 83).
-- docs/ai/reports/TASK_004_6_REPORT.txt.
+- data/sft/: raw/ (git-ignored), processed/ (git-ignored), manifests/
+  (sources.jsonl, SOURCES.md — tracked), stats/ (sft_stats.json,
+  SFT_DATA_REPORT.md — tracked).
+- checkpoints/chat_v1/: baseline_chat_samples.txt + eval_metrics.json
+  (Part K; no .pt files — no training).
+- docs/ai/reports/TASK_005_REPORT.txt (exact mandated headings).
 
 ## Rules while doing this task
-- Do NOT chat-tune, retrain, or modify best.pt / latest.pt / any .bin.
-- Do NOT start TASK 005 during this task.
+- Do NOT start training / pilot without an architect order (Part E gate).
+- Do NOT modify best.pt / latest.pt / any .bin; test.bin stays sealed.
+- Only .\.venv\Scripts\python.exe; strict from-scratch still applies.

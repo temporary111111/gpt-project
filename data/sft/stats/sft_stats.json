@@ -1,0 +1,46 @@
+{
+  "train_examples": 6573,
+  "val_examples": 338,
+  "train_supervised_target_tokens": 594179,
+  "val_supervised_target_tokens": 29878,
+  "total_supervised_target_tokens": 624057,
+  "train_lang_examples": {
+    "eng": 1834,
+    "fil": 688,
+    "en": 4051
+  },
+  "val_lang_examples": {
+    "eng": 80,
+    "fil": 41,
+    "en": 217
+  },
+  "train_lang_target_tokens": {
+    "en": 417121,
+    "eng": 128874,
+    "fil": 48184
+  },
+  "val_lang_target_tokens": {
+    "en": 22492,
+    "eng": 4444,
+    "fil": 2942
+  },
+  "unk": {
+    "train": {
+      "prompt_tokens": 303831,
+      "prompt_unk": 280,
+      "prompt_unk_rate": 0.000922,
+      "target_tokens": 594179,
+      "target_unk": 0,
+      "target_unk_rate": 0.0
+    },
+    "val": {
+      "prompt_tokens": 16275,
+      "prompt_unk": 15,
+      "prompt_unk_rate": 0.000922,
+      "target_tokens": 29878,
+      "target_unk": 0,
+      "target_unk_rate": 0.0
+    }
+  },
+  "max_length": 256
+}

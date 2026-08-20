@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "project": "chatgpt-like",
-  "updated_at": "2026-08-19T19:07:23Z",
+  "updated_at": "2026-08-20T02:56:41Z",
   "project_root": "C:\\Users\\dev\\Desktop\\chatgpt-like",
   "python": "3.11",
   "venv": ".\\.venv\\Scripts\\python.exe",
@@ -13,10 +13,10 @@
     "vram_gb": 4
   },
   "strict_from_scratch": true,
-  "current_phase": "awaiting lead architect review of handoff",
-  "last_completed_task": "TASK 004.6",
-  "current_task": "TASK 005 (pending lead architect task text)",
-  "next_planned_task": "TASK 005",
+  "current_phase": "TASK 005 STOP-gate delivered; awaiting lead architect corpus decision",
+  "last_completed_task": "TASK 005 (pipeline; training STOPPED at Part E gate)",
+  "current_task": "TASK 005 (awaiting corpus-path decision: expand vs. reduced-corpus authorization)",
+  "next_planned_task": "TASK 005 follow-up (SFT training if authorized)",
   "model": {
     "name": "GPT-style decoder-only Transformer",
     "params_total": 29270528,
@@ -32,7 +32,10 @@
     "tied_embeddings": true,
     "dropout": 0,
     "config_file": "configs/model_small.json",
-    "src": ["src/model.py", "src/attention.py"]
+    "src": [
+      "src/model.py",
+      "src/attention.py"
+    ]
   },
   "special_tokens": {
     "unk": 0,
@@ -81,7 +84,7 @@
       "effective_batch": 32,
       "ctx": 256,
       "lr": 0.0006,
-      "min_lr": 0.00006,
+      "min_lr": 6e-05,
       "warmup_iters": 500,
       "weight_decay": 0.1,
       "clip_grad": 1.0,
@@ -103,10 +106,59 @@
       "path": "checkpoints/pretrain_v1/latest.pt",
       "step": 38379,
       "tokens_seen": 314400768
+    },
+    "chat_v1": {
+      "note": "NO .pt files exist (training STOPPED at Part E gate); only baseline eval outputs",
+      "baseline_chat_samples": "checkpoints/chat_v1/baseline_chat_samples.txt",
+      "eval_metrics": "checkpoints/chat_v1/eval_metrics.json"
     }
   },
+  "sft": {
+    "task": "TASK 005 (pipeline complete; training NOT started)",
+    "sources": [
+      {
+        "repo": "CohereLabs/aya_dataset",
+        "revision": "f9ea04583f02a8f86404ff6c58bf75fe637df8a2",
+        "license": "Apache-2.0",
+        "accepted": 2934,
+        "filter": "eng+fil original-annotations only; train split only"
+      },
+      {
+        "repo": "OpenAssistant/oasst1",
+        "revision": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+        "license": "Apache-2.0",
+        "accepted": 39751,
+        "filter": "en human-only (synthetic/model/deleted/review/label filters); rank 0 preferred"
+      }
+    ],
+    "final_examples": 6911,
+    "train_examples": 6573,
+    "val_examples": 338,
+    "supervised_target_tokens_total": 624057,
+    "supervised_target_tokens_train": 594179,
+    "supervised_target_tokens_val": 29878,
+    "language_mix_supervised": {
+      "oasst_en": 439613,
+      "aya_eng": 133318,
+      "aya_fil": 51126
+    },
+    "target_unk_rate": 0.0,
+    "prompt_unk_rate": 0.000922,
+    "stop_gate": "624057 < 1000000 floor -> training NOT started (Part E)",
+    "baseline_pretrain_val_loss": 3.093633,
+    "pipeline": [
+      "scripts/acquire_sft_data.py",
+      "scripts/build_sft_dataset.py",
+      "scripts/sft_stats.py",
+      "src/sft_dataset.py",
+      "src/sft_train.py"
+    ],
+    "provenance": "data/sft/manifests/sources.jsonl + SOURCES.md",
+    "report": "data/sft/stats/SFT_DATA_REPORT.md"
+  },
   "known_limitations": [
-    "base model only, not chat/instruction tuned",
+    "base model only, not chat/instruction tuned (SFT blocked by Part E token floor)",
+    "SFT corpus below 1M supervised-token floor (624,057); Filipino only 8.2% (natural ratio)",
     "repetition, especially greedy decoding",
     "fluent factual hallucination",
     "small-model reasoning limitations",
@@ -121,7 +173,9 @@
     "checkpoint best/latest save order (latest now carries updated best_val_loss)",
     "optimizer parameter grouping/dedup",
     "deterministic validation",
-    "AMP non-finite gradient events self-heal (skip step + halve scale; 12 events in TASK 004)"
+    "AMP non-finite gradient events self-heal (skip step + halve scale; 12 events in TASK 004)",
+    "SFT assistant-label shift onto user tokens (labels shorter than ids; fixed + rebuilt, TASK 005)",
+    "OASST validation->train split leak (norm_split fix; 217 examples, TASK 005)"
   ],
   "git": {
     "repository": true,
@@ -130,7 +184,9 @@
     "remote_url": "https://github.com/temporary111111/gpt-project.git",
     "remote_authenticated": true,
     "gh_cli_available": false,
-    "milestone_tags": ["task-004-pretraining-complete"]
+    "milestone_tags": [
+      "task-004-pretraining-complete"
+    ]
   },
   "handoff": {
     "builder": "tools/ai_ops/build_handoff.py",
@@ -152,8 +208,12 @@
     "no_change_policy": "NO_CHANGES: handoff still built from current HEAD, no empty commit",
     "invariant": "handoff manifest commit SHA == finalizer completion commit SHA",
     "git_state_fields": [
-      "head_sha", "branch", "tracked_worktree_modified_count",
-      "staged_change_count", "untracked_count", "working_tree_clean"
+      "head_sha",
+      "branch",
+      "tracked_worktree_modified_count",
+      "staged_change_count",
+      "untracked_count",
+      "working_tree_clean"
     ],
     "ai_ops_tests": 83
   }

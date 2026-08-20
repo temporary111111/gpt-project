@@ -1,0 +1,27 @@
+{
+  "checkpoint": "checkpoints\\pretrain_v1\\best.pt",
+  "greedy": {
+    "n_responses": 20,
+    "empty_response_rate": 0.0,
+    "eos_termination_rate": 0.0,
+    "role_token_leakage_rate": 0.0,
+    "unk_rate": 0.0,
+    "replacement_char_rate": 0.0,
+    "mean_response_tokens": 64.0,
+    "mean_repetition_score": 0.6805,
+    "fil_prompts_answered_in_fil": 0.4,
+    "eng_prompts_answered_in_eng": 0.5
+  },
+  "sampled": {
+    "n_responses": 20,
+    "empty_response_rate": 0.0,
+    "eos_termination_rate": 0.1,
+    "role_token_leakage_rate": 0.0,
+    "unk_rate": 0.0,
+    "replacement_char_rate": 0.0,
+    "mean_response_tokens": 61.7,
+    "mean_repetition_score": 0.1321,
+    "fil_prompts_answered_in_fil": 0.4,
+    "eng_prompts_answered_in_eng": 0.5
+  }
+}

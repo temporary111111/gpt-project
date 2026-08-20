@@ -1,0 +1,126 @@
+======================================================================
+BASELINE CHAT (greedy) — checkpoints/pretrain_v1/best.pt (TASK 005 Part K)
+======================================================================
+
+[FIL] PROMPT: Kumusta ka?
+RESPONSE: Kumusta ka? (Magbabagong-anyo) Kumusta ka? (Magbabagong-anyo) Kumusta ka? (Magbabagong-anyo) Kumusta ka? (Magbabagong-anyo) Kumusta ka
+
+[FIL] PROMPT: Bakit mahalaga ang tubig?
+RESPONSE: (Bakit?) o bukal sa isang bagay? Naaapoy ang tubig? Naaapoy ang tubig? Naaapoy ang tubig? Naaapoy ang tubig? Naaapoy ang tubig? Naaapoy ang tubig? Naaapoy ang tubig? Naa
+
+[FIL] PROMPT: Ano ang araw?
+RESPONSE: ? (Ingles: Earth, earth, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire, fire,
+
+[FIL] PROMPT: Ipaliwanag nang simple kung ano ang gravity.
+RESPONSE: ang tawag sa mga bagay na ito. Ang mga bagay na ito ay hindi maaaring makita sa mga bagay na hindi makikita o hindi makikita. Ang mga bagay na ito ay maaaring makita sa mga bagay na hindi makikita o hindi makikita. Ang mga bagay na ito ay maaaring makita sa mga bagay
+
+[FIL] PROMPT: Pagod ako ngayon. Ano ang pwede kong gawin?
+RESPONSE: mo ako, tingnan ang mga tanong na ito. Pag-uusapan ng mga tao sa isang tanong. Pag-uusapan ng mga tao sa isang tanong. Pag-uusapan ng mga tao sa isang tanong. Pag-uusapan ng mga tao sa isang tanong.
+
+[FIL] PROMPT: Ano ang pagkakaiba ng ilog at dagat?
+RESPONSE: , ang mga ito ay hindi malinaw. Ang mga ito ay hindi malinaw, ngunit ang mga ito ay hindi malinaw. Ang mga ito ay hindi malinaw. Ang mga ito ay hindi malinaw. Ang mga ito ay hindi malinaw. Ang mga ito ay hindi malinaw. Ang mga ito ay hindi mal
+
+[FIL] PROMPT: Gumawa ng maikling pangungusap tungkol sa mangga.
+RESPONSE: Gumawa ng maikling pangungusap na may kaugnayan sa pangungusap na may kaugnayan sa pangungusap na may kaugnayan sa pangungusap na may kaugnayan sa pangungusap na may kaugnayan sa pangungusap na may kaugnayan sa pangungusap
+
+[FIL] PROMPT: Ano ang ibig sabihin ng kalayaan?
+RESPONSE: ? Ang isang tao ay maaaring tumukoy sa mga sumusunod: Layunin ng kalayaan: Layunin ng kalayaan: Layunin ng kalayaan: Layunin ng kalayaan: Layunin ng kalayaan: Layunin ng kalayaan: Layunin ng kalayaan: Layunin
+
+[FIL] PROMPT: Mahilig ako sa aso. Ano ang magandang pag-usapan natin?
+RESPONSE: mo kami sa mga tao. Ang mga tao ay hindi kailangang mag-isip ng mga tao. Ang mga tao ay hindi kailangang mag-isip ng mga tao. Ang mga tao ay hindi kailangang mag-isip ng mga tao. Ang mga tao ay hindi kailangang mag-isip ng mga tao. Ang
+
+[FIL] PROMPT: Ano ang 2 + 2?
+RESPONSE: ? Ang 2 ay isang uri ng yunit ng haba na ginagamit upang tukuyin ang mga yunit ng haba na 2. Ang 2 ay isang yunit ng haba na 2. Ang 2 ay isang yunit ng haba na 2. Ang 2 ay isang y
+
+[ENG] PROMPT: Hello, how are you?
+RESPONSE: , how are you? How are you going to be able to do anything? How are you going to be able to do anything? How can you be able to do anything? How can you be able to do anything? How can you be able to do anything? How can you be able to do anything? How
+
+[ENG] PROMPT: Why is water important?
+RESPONSE: 's water is a liquid that is not water. It is a liquid that is not water. It is a gas that is not water. It is a gas that is not water. It is a gas that is not water. It is a gas that is not water. It is a gas that is
+
+[ENG] PROMPT: What is the Sun?
+RESPONSE: is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse. It is a greenhouse
+
+[ENG] PROMPT: Explain gravity simply.
+RESPONSE: is a measurement of the amount of energy needed to be measured in a given time. For example, the amount of energy needed to be measured in a given time is 1/2. For example, the amount of energy needed to be measured in a given time is 1/2. For
+
+[ENG] PROMPT: I'm tired today. What can I do?
+RESPONSE: 't I! I'm tired of being a man. I'm tired of being a man. I'm tired of being a man. I'm tired of being a man. I'm tired of being a man. I'm tired of being a man.
+
+[ENG] PROMPT: What is the difference between a river and an ocean?
+RESPONSE: is a river. It is a river that flows through the ocean. The river is a river that flows through the ocean. The river is a river that flows through the ocean. The river is a river that flows through the ocean. The river is a river that flows through the ocean. The
+
+[ENG] PROMPT: Write a short sentence about mangoes.
+RESPONSE: , also called a barn, is a short sentence that is used to write a sentence. It is a short sentence that is used to write a sentence. It is a short sentence that is used to write a sentence that is not a sentence. It is a short sentence that
+
+[ENG] PROMPT: What does freedom mean?
+RESPONSE: is a term used to describe the rights of people in a society. It is used to describe the rights of people in a society. For example, in the United States, people are called "laws". In the United States, people are called "laws". In the United States, people are called "law
+
+[ENG] PROMPT: I like dogs. What could we talk about?
+RESPONSE: , oh! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes! yes!
+
+[ENG] PROMPT: What is 2 + 2?
+RESPONSE: , 2.5 km2, 3.6 km2, 3.6 km2, 3.7 km2, 1.7 km2, 1.7 km2, 1.7 km2, 1.7 km2, 1.7 km2,
+======================================================================
+BASELINE CHAT (sampled) — fixed seed
+======================================================================
+
+[FIL] PROMPT: Kumusta ka?
+RESPONSE: is a term used to refer to a human body of water. There are two orders of people who are not ordained before a human being can be used to refer to the body of water. The water that is so small is called a sherm. The sherm is similar to the sher
+
+[FIL] PROMPT: Bakit mahalaga ang tubig?
+RESPONSE: (Bakit?) Kategorya:Lutuing Pilipino Kategorya:Bulaklak Kategorya:Lutuing Pilipino Kategorya:Bulaklak Kategorya:Hawaii
+
+[FIL] PROMPT: Ano ang araw?
+RESPONSE: ? Dir.?(Mula sa isang paliwanag?) Walang katotohanan. Mga bagay na walang katiyakan sa isang liwanag. Katiyakan. Ang mga katiyakan sa iba pang mga planeta ay may katiyakan sa araw. Ang mga katiyakan naman sa mga
+
+[FIL] PROMPT: Ipaliwanag nang simple kung ano ang gravity.
+RESPONSE: ang halaga ng mga gravity. Ang pagkatuto(o pagkatuto) at pagkatuto (Ingles: exponential error) ay isang klase ng mga batas ng pisika. Ito ay isa ring uri ng batas ng pisika na nagsasaad na ang isang pisikal na katawan
+
+[FIL] PROMPT: Pagod ako ngayon. Ano ang pwede kong gawin?
+RESPONSE: mo ako, baka, mo, nandiyan? Ika-19 siglong ano ang iyong gagamitin? Mga sanggunian Kategorya:Mitolohiyang Griyego Kategorya:Anti-Katolisismo
+
+[FIL] PROMPT: Ano ang pagkakaiba ng ilog at dagat?
+RESPONSE: , ang isang maliit na kuta ng mga ilog at/o mga baybayin. Ang layo, mais at tahak ay bahagi ng isang bundok o burol. Ang mga ito ay maburol, maliban na lang kung saan tataas ang mga bundok ng isang ilog. Ang mga ilog
+
+[FIL] PROMPT: Gumawa ng maikling pangungusap tungkol sa mangga.
+RESPONSE: Gumata, isa ring maikling kathang-isip na karakter sa kuwento. Siya ang pangunahing tauhan ng Winnipeg Pelikula ng 1st generation: 15 (Hindi Mabigat) sa Mateo at Juan. Siya rin ang pangunahing tauhan ng walong beses
+
+[FIL] PROMPT: Ano ang ibig sabihin ng kalayaan?
+RESPONSE: /ng karangalan? Sinasabi ko ang taong ito." Ano ang sinkretismo? Sinasabi ko ang sinkretismo? Sinasabi ko ang sinkretismo? Sinasabi ko ang sinkretismo? Sinasabi ko ang sinkretismo? Sinasabi
+
+[FIL] PROMPT: Mahilig ako sa aso. Ano ang magandang pag-usapan natin?
+RESPONSE: ka sa akin. Ang isang tao ay tanging hindi malinaw kung nais niya ang kanyang kamay at siya ay mayaman ay walang laman. Ang mga babae ay maaring masama, hindi masama, at hindi tapat. Ang kasalakuyang mga babae ay bibig ng mga tao na
+
+[FIL] PROMPT: Ano ang 2 + 2?
+RESPONSE: ? Sinusubukan ni Hesiodo (c. 1100 BCE – c. 1000 BCE) na maging mga bituin, kung saan ay sa pamamagitan ng mga tektonikong komposisyon. Siya ay nakilala sa kanyang ambag sa pagiging pangunahing mga
+
+[ENG] PROMPT: Hello, how are you?
+RESPONSE: is a way to make it difficult to make it difficult for humans to know. In most countries, people can still hear something in the same way. Some people think that humans can be good and can help them understand what they do not like to hear. Some people think that humans can hear sounds from many different cultures
+
+[ENG] PROMPT: Why is water important?
+RESPONSE: means water is not used in water. It is used in watermelons. Dietrich is a well-known dog. Around 1250 BC, pedals and coats of arms were made. Now the water is in the water that is not as good as the water used for
+
+[ENG] PROMPT: What is the Sun?
+RESPONSE: is something that is not shadowing. Less than half of all the stars are in the Solar System, and their names are in all the elements. Less than two thousand years ago. The Sun was theium and is one of the largest stars in the Solar System. It is the second largest
+
+[ENG] PROMPT: Explain gravity simply.
+RESPONSE: is a non-profiterted oral system. It is a system where you can use tools from different countries to make sure that something is made of a higher temperature. This system is used in all areas of the world. So if you have a higher temperature, you must use them and try to
+
+[ENG] PROMPT: I'm tired today. What can I do?
+RESPONSE: tero. Zero can be trapped in the mouth to make a tremendous and diary of language and language, but also all ignorance. Prophet had a different culture to show how words would be used and how different the language might be. But I'm not a m
+
+[ENG] PROMPT: What is the difference between a river and an ocean?
+RESPONSE: , voltage, surface water, seas, and ocean water. Late the length of the earth, or on Earth, is a very short distance between the two places in the sky. The distance between a man and a man is always the same as the speed that a man can see in the heavens
+
+[ENG] PROMPT: Write a short sentence about mangoes.
+RESPONSE: . Audent (same head), which is the letter in the Latin alphabet, is used to write Latin. The word 'mense' comes from Latin word "pon" and means "viz". However, the words in "fan" are not used to write it. The words
+
+[ENG] PROMPT: What does freedom mean?
+RESPONSE: studies human rights. Different states of rights come under a different system or goal, and the term is used to terminally as a subject. In addition to the formal practice of human rights, it is used to say "the wrong thing", which is the base of human rights's rules.
+
+[ENG] PROMPT: I like dogs. What could we talk about?
+RESPONSE: (or else if you could talk to anybody else), or anybody with them. I am too poor to be foolish. The same, but you are a poor little dog, and you've done nothing but just a little bit of beef and the nebbage and the dog to get
+
+[ENG] PROMPT: What is 2 + 2?
+RESPONSE: /Linear 2 5:1959-1971) Electronic orthography 2 1957 (2d ed 26 ed 26 ed 26 ed 26 ed 26 ed 26 ed 26 ed 

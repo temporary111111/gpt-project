@@ -126,3 +126,21 @@ After building the ZIP, the finalizer re-opens HANDOFF_MANIFEST.json and
 fails with HANDOFF_COMMIT_MISMATCH if its git head_sha differs from the
 completion commit SHA. WHY: the ZIP must never silently describe a different
 state than the commit the finalizer just produced.
+
+## D-022: TASK 005 corpus floor — 1M supervised tokens, no fabrication (Part E)
+SFT training may only start when >= 1,000,000 usable human-only supervised
+target tokens exist. The measured corpus (624,057; Filipino 8.2%) is BELOW
+the floor → training STOPPED BEFORE FULL TRAINING and reported to the lead
+architect. No synthetic data, no auto-translation, no engineer-authored
+Filipino, and no oversampling beyond 2x may be used to pad the corpus; the
+natural English-dominant ratio is accepted and reported. WHY: the task
+mandates human-only, provenance-clean data and quality over ratio.
+
+## D-023: Assistant-only label masking must be byte-aligned with ids (TASK 005)
+The SFT labels array must have exactly the same length as the ids array
+(-100 prefix, supervised span over the final assistant target + EOS). The
+initial build produced labels SHORTER than ids, shifting supervision onto
+USER tokens — caught by the mandated test suite (test_user_tokens_masked),
+fixed, and the dataset rebuilt. WHY: a shifted mask silently trains the model
+to predict user text; the mandated Part W tests exist precisely to catch this
+class of error.

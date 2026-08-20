@@ -76,6 +76,7 @@ GPT-style decoder-only Transformer:
 - TASK 004: FIRST real from-scratch pretraining (ACCEPTED) — see below
 - TASK 004.5: self-maintaining memory, git, handoff infrastructure
 - TASK 004.6: AI Ops trust / handoff integrity hardening (committed-state handoff, test-failure abort, SHA invariant, no-change finalization, continuity corrections)
+- TASK 005: Chat/instruction tuning V1 — PIPELINE COMPLETE, TRAINING STOPPED AT PART E GATE (624,057 supervised tokens < 1M floor); see "TASK 005 (SFT) state" below
 
 ## Important bugs/fixes (verified)
 
@@ -88,6 +89,8 @@ GPT-style decoder-only Transformer:
 - Optimizer param grouping/dedup (weight decay on matrices only)
 - Deterministic validation
 - AMP non-finite GRADIENT norm (12 events in TASK 004): standard self-heal — skip optimizer step, halve GradScaler scale, drop grads, log warning + metrics, continue. Root cause: scale doubles every 2000 clean steps → unbounded growth → rare fp16 overflow. Non-finite LOSS remains a hard stop. This supersedes the TASK 003.5 hard-stop-on-inf-grad behavior (architect-approved).
+- SFT assistant-label shift (TASK 005): labels array was SHORTER than ids, shifting supervision onto USER tokens → caught by mandated test test_user_tokens_masked, fixed (full-length -100 prefix + target span), dataset rebuilt (supervised tokens re-measured: 624,057, up from the buggy 449,439).
+- OASST validation→train split leak (TASK 005): source split "validation" compared to "val" leaked 217 validation examples into TRAIN → fixed with norm_split(), rebuilt, no-leakage test added.
 
 ## Production pretraining result (TASK 004)
 
@@ -103,18 +106,29 @@ GPT-style decoder-only Transformer:
 - LATEST: checkpoints/pretrain_v1/latest.pt (step 38,379, tokens 314,400,768)
 - Do NOT modify/delete/move them. Never commit *.pt.
 
+## TASK 005 (SFT) state
+
+- Pipeline (tested, 108/108): scripts/acquire_sft_data.py → build_sft_dataset.py → sft_stats.py; src/sft_dataset.py (SFTDataset), src/sft_train.py (pilot gate, retention guards, resume, atomic checkpoints); configs/sft_chat_v1.json + sft_train_v1.json; scripts/evaluate_chat.py (baseline/compare modes); src/chat.py upgraded (real multi-turn terminal chat, EOS + role-marker stop, clear/exit/system).
+- Corpus: Aya rev f9ea0458… (eng+fil original-annotations, 2,934) + OASST1 rev fdf72ae0… (en human-only, 39,751) → 6,911 examples; SUPERVISED TARGET TOKENS 624,057 (train 594,179 / val 29,878); fil 8.2% / Aya-eng 21.4% / OASST-en 70.4%; target unk 0.0. Raw + processed files git-ignored; manifests/stats tracked (SOURCES.md, sources.jsonl, sft_stats.json, SFT_DATA_REPORT.md).
+- Baselines (best.pt, eval-only): BASELINE_PRETRAIN_VAL_LOSS = 3.093633; chat baseline greedy EOS 0.0 / repetition 0.68 / fil-in-fil 0.4 / eng-in-eng 0.5.
+- STOP GATE: 624,057 < 1,000,000 supervised-token floor → NO training started (Part E). checkpoints/chat_v1/ holds only eval outputs; NO chat_v1 .pt files.
+- Decision needed from lead architect: (a) expand human-only corpus, (b) authorize reduced-corpus training, (c) other. See NEXT_ACTION.md.
+
 ## Current limitations
 
-- base model NOT chat/instruction tuned (no <system>/<user>/<assistant> formatting training yet)
+- base model NOT chat/instruction tuned (SFT blocked by Part E token floor; no chat_v1 weights exist)
 - repetition, especially greedy decoding
 - fluent factual hallucination
 - small-model reasoning limitations
 - rare replacement-character output for OOV symbols (tokenizer coverage)
+- SFT corpus is English-heavy (91.8%): Filipino only 8.2% of supervised tokens (natural ratio, per D-022)
 
 ## Next planned stage
 
-TASK 005 — chat/instruction tuning (SFT with chat roles on top of best.pt).
-Await the lead architect's review of AI_LEAD_HANDOFF.zip and explicit task text.
+TASK 005 follow-up: lead architect decides the corpus path (expand human-only
+data vs. authorize reduced-corpus SFT). If authorized, run
+scripts/build_sft_dataset.py → src/sft_train.py → evaluate_chat.py --mode
+compare, then chat_v1/best.pt verification and milestone tag on success.
 
 ## Long-term roadmap
 

@@ -1,0 +1,26 @@
+{
+  "task": "TASK 005 SFT hyperparameters (reference record)",
+  "base_checkpoint": "checkpoints/pretrain_v1/best.pt",
+  "batch_size": 8,
+  "grad_accum": 4,
+  "context_length": 256,
+  "peak_lr": 5e-5,
+  "min_lr": 5e-6,
+  "weight_decay": 0.01,
+  "grad_clip": 1.0,
+  "warmup_steps": 100,
+  "amp": "fp16 CUDA",
+  "seed": 1337,
+  "max_epochs": 3,
+  "eval_interval_steps": 200,
+  "retention_eligibility_factor": 1.15,
+  "retention_hard_stop_factor": 1.20,
+  "early_stop_patience_evals": 4,
+  "pilot_steps": 200,
+  "notes": [
+    "new SFT optimizer/scaler/scheduler state (NOT a pretraining resume)",
+    "full-model fine-tuning (no LoRA in TASK 005)",
+    "assistant-only loss masking; labels=-100 everywhere else",
+    "source revision metadata is recorded in the checkpoint"
+  ]
+}

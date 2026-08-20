@@ -1,0 +1,323 @@
+================================================================================
+TASK 005 RESULT — CHAT / INSTRUCTION TUNING V1 — STOPPED BEFORE FULL TRAINING
+================================================================================
+STOP-gate triggered per TASK 005 Part E: usable supervised target tokens
+(624,057) < 1,000,000 floor. FULL SFT TRAINING WAS NOT STARTED. The complete
+SFT pipeline, provenance, baseline evaluations, and all 22 mandated tests were
+delivered; the lead architect must decide the corpus path forward
+(additional human-only data vs. reduced-corpus training vs. roadmap change).
+
+================================================================================
+FROM-SCRATCH VERIFICATION
+================================================================================
+- No pretrained LLM weights, tokenizer, or embeddings anywhere in the pipeline.
+- No distillation. No external LLM API used as model brain or to write answers.
+- SFT data is 100% human-written (Aya original annotations + OpenAssistant
+  human-only messages); synthetic/re-annotated/model-generated rows rejected.
+- Engineer role was software-only: no linguistic prompt/response pairs were
+  authored by the engineer.
+- Base weights untouched: checkpoints/pretrain_v1/best.pt SHA-256
+  ba40ad8ce0644720d243209049f91791d1163113e55a9fd4e3738326db8b8350 (unchanged).
+
+================================================================================
+SFT DATA SOURCES
+================================================================================
+- CohereLabs/aya_dataset, revision f9ea04583f02a8f86404ff6c58bf75fe637df8a2,
+  license Apache-2.0, split "train" ONLY (test split unused). This is the
+  human-annotation dataset, NOT the machine-generated Aya Collection.
+- OpenAssistant/oasst1, revision fdf72ae0827c1cda404aff25b6603abec9e3399b,
+  license Apache-2.0, source train + validation splits.
+- No ShareGPT/Alpaca/Vicuna/Bactrian/translated/synthetic datasets.
+- Full provenance: data/sft/manifests/sources.jsonl + SOURCES.md; raw files
+  data/sft/raw/* (git-ignored, SHA-256 recorded: aya 295405cb…, oasst be15d49e…).
+
+================================================================================
+HUMAN-ONLY VERIFICATION
+================================================================================
+- Aya: annotation_type == "original-annotations" ONLY; re-annotations excluded.
+- OASST: synthetic==False, model_name empty, deleted==False, review_result==True,
+  tree_state=="ready_for_export", reject-labels
+  {hate_speech, language_mismatch, not_appropriate, pii, sexual_content, spam,
+  toxicity, violence}, rank==0 preferred per parent.
+- Part U human-readable review: 30 Filipino Aya + 30 English Aya + 30 OASST
+  examples reviewed by the engineer — ALL 90 PASSED, 0 rejected.
+- Acquisition acceptance: Aya 2,934 (eng 2,164 / fil 770); OASST 39,751 (en).
+
+================================================================================
+AYA FILTERING
+================================================================================
+- Filter: language_code in {eng, fil} AND annotation_type == original-annotations.
+- Accepted 2,934 of 202,362 train rows.
+- Rejected: re-annotations 2,251; other languages 197,177.
+- Filters unit-tested (tests: aya original filter, re-annotation rejection,
+  language filter).
+
+================================================================================
+OASST FILTERING
+================================================================================
+- English-only + all human-only/quality filters above.
+- Accepted 39,751 of 88,838 train+val messages (en).
+- Rejected: lang_not_en 47,533; deleted 869; review_failed 685.
+- 9,409 multi-turn examples assembled via message-tree paths (best rank-0
+  assistant per parent); 13 roots skipped (root not prompter).
+- Filters unit-tested (tests: synthetic rejection, model_name rejection,
+  deleted/review rejection).
+
+================================================================================
+SFT CORPUS STATISTICS
+================================================================================
+- Final examples: 6,911 (train 6,573 / val 338). Splits: Aya 95/5 deterministic
+  sha256 bucket; OASST source split with validation normalized to val; no
+  message_tree_id crosses; zero train/val leakage (unit-tested).
+- SUPERVISED TARGET TOKENS (assistant-only): TOTAL 624,057
+  (train 594,179 / val 29,878).
+- Rejected during build: pathological repeats 55; duplicates 43; eval-probe
+  collisions 3; target-too-long 4,078; target-unk 1,253; empty 0; corrupted 0.
+- dropped_oldest_turns 1,748 (older context evicted to keep the final turn).
+
+================================================================================
+FILIPINO
+================================================================================
+- Filipino (Aya "fil"): 51,126 supervised target tokens (48,184 train /
+  2,942 val) = 8.2% of the corpus; 729 examples (688 train / 41 val).
+- No auto-translation, no fabricated Filipino: exactly the human Filipino
+  examples available in the accepted sources.
+
+================================================================================
+ENGLISH MIX
+================================================================================
+- en (OASST1): 439,613 supervised tokens (70.4%); eng (Aya): 133,318 (21.4%).
+- English total 91.8% — the natural ratio of the human datasets. Per task
+  rules, no oversampling (>2x) or fabrication was used to force 50/50;
+  quality/provenance prioritized over ratio (per D-022).
+
+================================================================================
+TOKENIZER QUALITY
+================================================================================
+- tokenizer_v1 (vocab 8000) target unk rate: 0.0 train AND val (0.0 floor
+  enforced: 1,253 examples with <unk> in the target were rejected).
+- prompt unk rate: 0.000922 (rare OOV symbols in user prompts only).
+
+================================================================================
+SFT FORMAT
+================================================================================
+- <bos><user>U<assistant>A<eos>; multi-turn: earlier turns are context, only
+  the final assistant target + EOS are supervised.
+- labels = -100 for BOS/user/context/role markers/padding.
+- Context 256: final user turn + final target always kept; oldest turns
+  dropped first (1,748 events); examples that cannot fit the target rejected.
+
+================================================================================
+ASSISTANT-ONLY LOSS VERIFICATION
+================================================================================
+- Unit tests prove: assistant-only mask, user tokens masked, padding masked,
+  EOS supervised, context-length handling, oldest-turn truncation,
+  overlong-target rejection.
+- CRITICAL BUG FOUND BY TESTS AND FIXED: the original label construction
+  produced labels SHORTER than ids (supervised span shifted onto user text).
+  Fixed in build_sft_dataset.py (labels fully aligned: -100 prefix + target
+  span), dataset REBUILT, supervised-token counts re-verified
+  (624,057, up from the buggy 449,439). Tests 108/108 green after the fix.
+
+================================================================================
+BASELINE CHAT RESULTS
+================================================================================
+- checkpoints/chat_v1/baseline_chat_samples.txt (Part K, pretrain_v1/best.pt,
+  fixed seed, 20 fixed prompts: 10 Filipino + 10 English; greedy + sampled).
+- checkpoints/chat_v1/eval_metrics.json:
+  greedy: EOS termination 0.0, role leakage 0.0, unk 0.0, mean len 64.0,
+  repetition 0.6805, Filipino answers in Filipino 0.4, English answers in
+  English 0.5.
+  sampled (t 0.8, top-k 40): EOS termination 0.1, role leakage 0.0, unk 0.0,
+  mean len 61.7, repetition 0.1321, fil-in-fil 0.4, eng-in-eng 0.5.
+- As expected for an untuned base model: no EOS termination, high greedy
+  repetition, partial language matching (code-switching).
+
+================================================================================
+BASELINE BASE-LM VALIDATION LOSS
+================================================================================
+- BASELINE_PRETRAIN_VAL_LOSS = 3.093633 (measured 2026-08-20 on
+  data/processed/validation.bin, 415,832 tokens, estimate_loss 50 iters,
+  AMP fp16, seed 1338+1000; evaluation only — no weight modification).
+- Consistent with best.pt step-36,500 val 3.073326 (different eval seed/iters).
+
+================================================================================
+SFT TRAINING CONFIG
+================================================================================
+- configs/sft_train_v1.json: batch 8, grad accum 4, ctx 256, peak lr 5e-5,
+  min lr 5e-6, warmup >=100 (or 3%), wd 0.01, clip 1.0, AMP fp16, seed 1337,
+  max 3 epochs, eval every 200 steps, pilot 200 steps.
+- Init-from base (weights only; new optimizer/scaler/scheduler), full
+  fine-tune (no LoRA). Retention: eligible <= baseline*1.15, hard stop >
+  baseline*1.20, early stop after 4 no-improve evals.
+- Pipeline ready: src/sft_dataset.py, src/sft_train.py (resume, atomic
+  checkpoints, KeyboardInterrupt, source-meta in checkpoints).
+
+================================================================================
+PILOT RESULT
+================================================================================
+NOT RUN — full training (and therefore the 200-step pilot) was NOT started
+(Part E STOP gate).
+
+================================================================================
+TRAINING COMPLETION
+================================================================================
+NOT STARTED — 624,057 supervised target tokens < 1,000,000 floor. No chat_v1
+checkpoints exist. No optimizer step was executed.
+
+================================================================================
+TOTAL OPTIMIZER STEPS
+================================================================================
+0 (none executed).
+
+================================================================================
+SUPERVISED TARGET TOKENS SEEN
+================================================================================
+0 (none seen).
+
+================================================================================
+BEST SFT VALIDATION LOSS
+================================================================================
+N/A (no training run).
+
+================================================================================
+BEST CHECKPOINT STEP
+================================================================================
+N/A (no chat_v1 best.pt).
+
+================================================================================
+POST-SFT BASE-LM VALIDATION LOSS
+================================================================================
+N/A (base weights untouched).
+
+================================================================================
+BASE LANGUAGE RETENTION
+================================================================================
+N/A for SFT (no training). pretrain_v1/best.pt SHA-256 verified unchanged
+(ba40ad8c…); baseline 3.093633 recorded for the future retention guard.
+
+================================================================================
+CHAT QUALITY COMPARISON
+================================================================================
+- Baseline only (Part K, see BASELINE CHAT RESULTS). The post-SFT comparison
+  (scripts/evaluate_chat.py --mode compare) is ready but requires a trained
+  chat_v1/best.pt, which does not exist (STOP gate).
+
+================================================================================
+FILIPINO CHAT QUALITY
+================================================================================
+Baseline only: 40% of Filipino prompts answered with Filipino-dominant text
+(greedy) — base model code-switches; no chat tuning applied.
+
+================================================================================
+ENGLISH CHAT QUALITY
+================================================================================
+Baseline only: 50% of English prompts answered in English (greedy).
+
+================================================================================
+MULTI-TURN RESULT
+================================================================================
+Not evaluated (requires a chat-tuned checkpoint; compare mode includes Bruno
+multi-turn probes: "Ang pangalan ng aso ko ay Bruno." / "My dog's name is
+Bruno." follow-ups).
+
+================================================================================
+REPETITION
+================================================================================
+Baseline greedy repetition score 0.6805 (mean), sampled 0.1321 — expected
+untuned-base behavior; the SFT pipeline's planned fix is assistant-only
+supervision + sampling parameters (to be validated after training).
+
+================================================================================
+ROLE LEAKAGE
+================================================================================
+Baseline role-token leakage rate 0.0 (both greedy and sampled).
+
+================================================================================
+EOS METRICS
+================================================================================
+Baseline EOS termination rate: greedy 0.0 / sampled 0.1 — the untuned base
+does not terminate at EOS (expected); chat_v1 must learn <eos> termination.
+
+================================================================================
+PEAK VRAM
+================================================================================
+N/A (no training). Pretraining reference: 1.38 GB peak. No chat training ran.
+
+================================================================================
+CHECKPOINT VERIFICATION
+================================================================================
+- checkpoints/chat_v1/ contains ONLY evaluation outputs
+  (baseline_chat_samples.txt, eval_metrics.json) — no .pt files (no training).
+- pretrain_v1/best.pt SHA-256 ba40ad8ce0644720d243209049f91791d1163113e55a9fd4e3738326db8b8350
+  and latest.pt SHA-256 8c00ff4d… verified unchanged at task start/end.
+
+================================================================================
+TEST RESULTS
+================================================================================
+- Full suite: 108/108 PASSED (pytest, .\.venv\Scripts\python.exe -m pytest tests -v).
+  - tests/test_ai_ops.py: 83 (TASK 004.6 suite, still green)
+  - tests/test_sft.py: 25 (the 22 mandated TASK 005 tests + 3 extras:
+    eval_sft_loss smoke, OASST val-split mapping, multiturn rank-0 preference)
+- The 22 mandated items: aya original filter, re-annotation rejection,
+  language filter, synthetic rejection, model_name rejection, deleted/review
+  rejection, multi-turn path, deterministic splits, assistant-only mask,
+  user masked, padding masked, EOS supervised, context-length handling,
+  oldest-turn truncation, overlong-target rejection, checkpoint save/load,
+  resume, forgetting guard, chat history builder, EOS/role stopping,
+  tokenizer special-token compatibility, no leakage.
+
+================================================================================
+ERRORS OR WARNINGS
+================================================================================
+- BUG FOUND + FIXED (masking): assistant labels were shorter than ids, shifting
+  supervision onto user tokens (caught by test_user_tokens_masked); fixed,
+  dataset rebuilt, counts re-verified.
+- BUG FOUND + FIXED (split leak): OASST "validation" source split compared to
+  "val" leaked 217 validation examples into TRAIN; fixed with norm_split(),
+  dataset rebuilt, no-leakage test added.
+- No errors remain; suite fully green.
+
+================================================================================
+GIT COMMIT
+================================================================================
+Performed by finalize_task.py (tests must pass first). Contents: TASK 005 SFT
+pipeline + tests + provenance manifests + stats + baseline evaluations +
+docs/ai updates + this report. Raw SFT downloads and large processed files are
+git-ignored.
+
+================================================================================
+GIT PUSH
+================================================================================
+Pushed to origin (https://github.com/temporary111111/gpt-project.git) by the
+finalizer when an authenticated remote exists.
+
+================================================================================
+MILESTONE TAG
+================================================================================
+NOT created. Per Part Z the milestone tag task-005-chat-v1-complete may only
+be created on SUCCESS. This task stopped before training (Part E gate), so no
+tag was created and no training success is claimed.
+
+================================================================================
+AI_LEAD_HANDOFF READY
+================================================================================
+Yes — rebuilt from the exact committed state by finalize_task.py (manifest
+commit SHA == finalizer commit SHA).
+
+================================================================================
+USER CHAT COMMAND
+================================================================================
+Reserved for after a successful SFT run:
+  .\.venv\Scripts\python.exe -m src.chat --checkpoint checkpoints\chat_v1\best.pt --tokenizer-model data\tokenizer\tokenizer_v1.model
+NOT applicable now: no chat_v1/best.pt exists (no training). src/chat.py was
+upgraded (Part R: real multi-turn terminal chat) and is ready for that run.
+
+================================================================================
+READY FOR NEXT ARCHITECT REVIEW
+================================================================================
+Yes. Deliverables awaiting review: full SFT pipeline (acquire/build/stats/
+train/evaluate), provenance (SOURCES.md, sources.jsonl), SFT_DATA_REPORT.md
+(624,057 supervised tokens < 1M floor), baseline evaluations, 108/108 tests,
+src/chat.py upgrade, docs/ai updates. Decision required: corpus expansion path
+or explicit authorization to train on the reduced corpus.

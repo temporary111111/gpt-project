@@ -29,6 +29,11 @@ data/raw/
 data/cleaned/
 data/manifests/sources.jsonl
 
+# TASK 005 SFT data: NEVER commit downloaded raw datasets or the large
+# processed SFT corpus; provenance manifests/stats under manifests+stats ARE tracked.
+data/sft/raw/
+data/sft/processed/
+
 # Handoff / review packages (superseded zips; current one is AI_LEAD_HANDOFF.zip)
 AI_LEAD_HANDOFF.zip
 architect_task*.zip

@@ -3,3 +3,6 @@ torch==2.13.0+cu126
 numpy==2.4.6
 sentencepiece==0.2.2
 pytest==9.1.1
+# Data acquisition only (TASK 005 Part B) - not used during SFT training
+datasets==5.0.1
+huggingface_hub==1.28.0
