@@ -28,10 +28,16 @@ Processing:
     ID (official train/dev/test dialog-ID CSVs, woz fallback deterministic
     bucket); a conversation never appears in both train and validation
   - chat format: <bos><user>U<assistant>A<eos> (multi-turn: earlier turns are
-    context; ONLY the final assistant target + EOS is supervised, labels=-100
-    elsewhere)
-  - context 256: keep the final user turn + complete target; drop oldest
-    turns first; reject examples whose target itself cannot fit
+    context; ONLY the final assistant target + EOS is supervised)
+  - CAUSAL next-token labels (TASK 005.2 fix): labels[i] = ids[i + 1] wherever
+    the NEXT token is assistant content or the terminating EOS; the first
+    assistant token is predicted from the <assistant> role marker, EOS is
+    predicted from the LAST assistant content token, and the EOS input
+    position is masked (-100). The same-position identity objective
+    (labels[i] = ids[i]) is NEVER used.
+  - context 256: keep the final user turn + complete target; keep the MOST
+    RECENT complete turns and drop the OLDEST turns first; reject examples
+    whose target itself cannot fit
   - evaluation probes from TASK 005 Part K/S and TASK 005.1 Part U are
     excluded from training
   - sampling weights: Filipino up to 4x (target ~15-25% effective share),
@@ -425,9 +431,22 @@ def compute_sampling_weights(train_rows: List[dict]) -> Tuple[dict, dict]:
 
 def tokenize_example(ex: dict, tok: SentencePieceTokenizer,
                      stats: Counter, block_size: int = BLOCK_SIZE) -> Optional[dict]:
-    """Builds (ids, labels) in chat format with assistant-only supervision."""
+    """Builds (ids, labels) in chat format with CAUSAL next-token supervision.
+
+    Label convention (TASK 005.2 root-cause fix): labels[i] = ids[i + 1]
+    whenever the NEXT token is part of the final assistant target or the
+    terminating EOS; every other position is -100. So the model predicts the
+    FIRST assistant token from the <assistant> role marker, each following
+    assistant token from the previous one, and EOS from the LAST assistant
+    content token. The EOS input position itself is masked (-100) because
+    there is no next token. The same-position identity objective
+    (labels[i] = ids[i]) is NEVER used.
+
+    Multi-turn context: the most RECENT complete turns are preserved first;
+    the OLDEST turns are dropped first when the context window is full.
+    The final user turn and final assistant target are never dropped.
+    """
     ids: List[int] = [tok.bos_id]
-    labels: List[int] = [-100]
 
     # 1) final user turn + final assistant target must fit (always kept)
     core_turns = ex["turns"]
@@ -438,23 +457,36 @@ def tokenize_example(ex: dict, tok: SentencePieceTokenizer,
         stats["rejected_target_too_long"] += 1
         return None
 
-    # 2) prepend older complete turns while they fit
-    prefix: List[int] = []
-    for role, text in core_turns[:-2]:
+    # 2) prepend the most RECENT older complete turns while they fit
+    #    (iterate newest -> oldest so the OLDEST turns are dropped first)
+    budget = block_size - len(ids) - len(core_ids)
+    kept_turns: List[List[int]] = []
+    kept_len = 0
+    for role, text in reversed(core_turns[:-2]):
         turn_ids = ([tok.user_id] + tok.encode(text)) if role == "user" else \
                    ([tok.assistant_id] + tok.encode(text))
-        if len(prefix) + len(turn_ids) + len(ids) + len(core_ids) > block_size:
+        if kept_len + len(turn_ids) > budget:
             stats["dropped_oldest_turns"] += 1
             break
+        kept_turns.append(turn_ids)
+        kept_len += len(turn_ids)
+    prefix: List[int] = []
+    for turn_ids in reversed(kept_turns):
         prefix.extend(turn_ids)
 
     full_ids = ids + prefix + core_ids
-    full_labels = [-100] * len(full_ids)
+    # position of the first assistant CONTENT token; causal supervision starts
+    # at the <assistant> role marker (target_start - 1) and ends at the last
+    # assistant content position (len - 2), predicting ids[i + 1].
     target_start = len(full_ids) - len(tok.encode(final_assistant[1])) - 1  # -1 = eos
-    for i in range(target_start, len(full_ids)):
-        full_labels[i] = full_ids[i]
+    full_labels = [-100] * len(full_ids)
+    for i in range(target_start - 1, len(full_ids) - 1):
+        full_labels[i] = full_ids[i + 1]
+    # the final input position (EOS) stays -100: there is no next token
 
-    return {"ids": full_ids, "labels": full_labels, "n_supervised": len(full_labels) - target_start}
+    n_supervised = (len(full_ids) - 1) - (target_start - 1)
+    return {"ids": full_ids, "labels": full_labels,
+            "target_start": target_start, "n_supervised": n_supervised}
 
 
 def cross_source_dedup(examples: List[dict]) -> Tuple[List[dict], Counter]:
@@ -575,17 +607,33 @@ def main() -> None:
         if built is None:
             continue
         tokenized.append({**ex, "ids": built["ids"], "labels": built["labels"],
-                          "n_supervised": built["n_supervised"]})
+                          "target_start": built["target_start"],
+                          "n_supervised": built["n_supervised"],
+                          "label_convention": "causal_next_token"})
     stats["final_examples"] = len(tokenized)
 
-    # <unk> rates on the FINAL accepted corpus (targets with <unk> were rejected)
+    # <unk> rates on the FINAL accepted corpus (targets with <unk> were rejected).
+    # prompt = everything before the first assistant CONTENT token (target_start);
+    # target = assistant content tokens + EOS.
+    # Also: label identity fraction = share of supervised positions where the
+    # causal next-token label equals the CURRENT input token (labels[i]==ids[i]).
+    # Under the old same-position objective this was ~1.0; causally it must be
+    # small (only naturally repeated tokens).
+    identity_same = 0
+    identity_sup = 0
     for ex in tokenized:
         ids, labels = ex["ids"], ex["labels"]
-        start = next((n for n, v in enumerate(labels) if v != -100), len(ids))
-        unk_stats["prompt_tokens"] += start
-        unk_stats["prompt_unk"] += sum(1 for v in ids[:start] if v == special["unk"])
-        unk_stats["target_tokens"] += len(ids) - start
-        unk_stats["target_unk"] += sum(1 for v in ids[start:] if v == special["unk"])
+        ts = ex["target_start"]
+        unk_stats["prompt_tokens"] += ts
+        unk_stats["prompt_unk"] += sum(1 for v in ids[:ts] if v == special["unk"])
+        unk_stats["target_tokens"] += len(ids) - ts
+        unk_stats["target_unk"] += sum(1 for v in ids[ts:] if v == special["unk"])
+        for i, lab in enumerate(labels):
+            if lab != -100:
+                identity_sup += 1
+                if lab == ids[i]:
+                    identity_same += 1
+    label_identity_fraction = round(identity_same / max(1, identity_sup), 6)
 
     # splits
     train_rows, val_rows = [], []
@@ -625,6 +673,9 @@ def main() -> None:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "tokenizer": str(TOKENIZER_MODEL),
         "block_size": BLOCK_SIZE,
+        "label_convention": "causal_next_token (labels[i] = ids[i+1] over the final "
+                            "assistant target + EOS; never same-position labels)",
+        "label_identity_fraction": label_identity_fraction,
         "unique_examples": len(tokenized),
         "train_examples": len(train_rows),
         "val_examples": len(val_rows),

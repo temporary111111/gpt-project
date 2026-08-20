@@ -1,8 +1,7 @@
 {
-  "generated_at": "2026-08-20T03:50:10.905590+00:00",
-  "tokenizer": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\tokenizer\\tokenizer_v1.model",
-  "block_size": 256,
   "unique_examples": 50776,
+  "label_convention": "causal_next_token (labels[i] = ids[i+1] over the final assistant target + EOS; never same-position labels)",
+  "label_identity_fraction": 0.002832,
   "train_examples": 43660,
   "val_examples": 7116,
   "unique_supervised_target_tokens": 1863853,
@@ -43,17 +42,10 @@
     "taskmaster1": 528249
   },
   "sampling": {
-    "fil_weight": 4.0,
-    "english_source_weights": {
-      "aya": 1.0,
-      "dolly": 1.0,
-      "oasst1": 1.0,
-      "taskmaster1": 1.0
-    },
-    "unique_train_examples": 43660,
     "effective_train_examples": 45724,
-    "unique_train_supervised_tokens": 1697262,
+    "unique_train_examples": 43660,
     "effective_train_supervised_tokens": 1841814,
+    "unique_train_supervised_tokens": 1697262,
     "effective_fil_supervised_tokens": 192736,
     "effective_fil_share": 0.1046,
     "effective_source_examples": {
@@ -69,54 +61,23 @@
     "gate_passed": true,
     "note": "unique accepted human tokens BEFORE oversampling; weighted repeats never count toward this gate"
   },
-  "tokenizer_unk": {
-    "prompt_token_count": 5235972,
-    "prompt_unk_count": 1094,
-    "prompt_unk_rate": 0.000209,
-    "target_token_count": 1863853,
-    "target_unk_count": 0,
-    "target_unk_rate": 0.0
+  "unk": {
+    "train": {
+      "prompt_tokens": 4337020,
+      "prompt_unk": 1017,
+      "prompt_unk_rate": 0.000234,
+      "target_tokens": 1697262,
+      "target_unk": 0,
+      "target_unk_rate": 0.0
+    },
+    "val": {
+      "prompt_tokens": 887113,
+      "prompt_unk": 103,
+      "prompt_unk_rate": 0.000116,
+      "target_tokens": 166591,
+      "target_unk": 0,
+      "target_unk_rate": 0.0
+    }
   },
-  "example_percent_with_target_unk": 2.382,
-  "counters": {
-    "raw_aya": 2934,
-    "raw_oasst": 39751,
-    "raw_dolly": 15010,
-    "raw_taskmaster": 13170,
-    "oasst_skipped_root_not_prompter": 13,
-    "tm_skipped_capped_candidate_turns": 104036,
-    "tm_skipped_root_not_user": 18292,
-    "aya_examples": 2934,
-    "oasst_examples": 9409,
-    "dolly_examples": 15010,
-    "taskmaster_examples": 34318,
-    "rejected_aya_eng_mislabel": 104,
-    "rejected_pathological_repeats": 217,
-    "rejected_corrupted_unicode": 3,
-    "after_quality": 61347,
-    "rejected_duplicates": 1160,
-    "dup_pair_aya": 43,
-    "prompt_only_duplicates": 6686,
-    "dup_pair_dolly": 15,
-    "dup_pair_aya|dolly": 2,
-    "dup_pair_dolly|oasst1": 1,
-    "dup_pair_taskmaster1": 1083,
-    "dup_pair_oasst1|taskmaster1": 16,
-    "after_dedup": 60187,
-    "rejected_eval_probes": 24,
-    "after_probe_exclusion": 60163,
-    "rejected_target_too_long": 7954,
-    "rejected_target_unk": 1433,
-    "dropped_oldest_turns": 10756,
-    "final_examples": 50776
-  },
-  "outputs": {
-    "train": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\sft\\processed\\sft_train.jsonl",
-    "val": "C:\\Users\\dev\\Desktop\\chatgpt-like\\data\\sft\\processed\\sft_val.jsonl"
-  },
-  "leakage_check": {
-    "train_val_id_overlap": 0,
-    "tm_conv_overlap": 0,
-    "oasst_tree_overlap": 0
-  }
+  "max_length": 256
 }

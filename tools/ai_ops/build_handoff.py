@@ -56,6 +56,12 @@ INCLUDE_ROOTS = [
     "checkpoints/chat_v1/chat_comparison.txt",
     "checkpoints/chat_v1/eval_metrics.json",
     "checkpoints/chat_v1/post_sft_eval_metrics.json",
+    # TASK 005.2 corrected Chat V1 result files (small; checkpoints stay excluded)
+    "checkpoints/chat_v1_corrected/run_config.json",
+    "checkpoints/chat_v1_corrected/metrics.jsonl",
+    "checkpoints/chat_v1_corrected/chat_comparison.txt",
+    "checkpoints/chat_v1_corrected/eval_metrics.json",
+    "checkpoints/chat_v1_corrected/post_sft_eval_metrics.json",
 ]
 
 # Small root-level operational files that should be included when tracked.
@@ -66,6 +72,8 @@ ARTIFACT_OMIT_LIST = [
     "checkpoints/pretrain_v1/latest.pt",
     "checkpoints/chat_v1/best.pt",
     "checkpoints/chat_v1/latest.pt",
+    "checkpoints/chat_v1_corrected/best.pt",
+    "checkpoints/chat_v1_corrected/latest.pt",
 ]
 
 DENY_SUBSTRINGS = [

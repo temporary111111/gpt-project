@@ -61,7 +61,8 @@ def main() -> None:
         for r in rows:
             i = r["ids"]
             l = r["labels"]
-            start = next((n for n, v in enumerate(l) if v != -100), len(i))
+            start = r.get("target_start") or next(
+                (n for n, v in enumerate(l) if v != -100), len(i)) + 1
             tt += len(i) - start
             t_unk += sum(1 for v in i[start:] if v == unk)
             pt += start
@@ -70,6 +71,17 @@ def main() -> None:
                 "prompt_unk_rate": round(pt_unk / max(1, pt), 6),
                 "target_tokens": tt, "target_unk": t_unk,
                 "target_unk_rate": round(t_unk / max(1, tt), 6)}
+
+    def identity_fraction(rows):
+        same = sup = 0
+        for r in rows:
+            ids, labels = r["ids"], r["labels"]
+            for i, lab in enumerate(labels):
+                if lab != -100:
+                    sup += 1
+                    if lab == ids[i]:
+                        same += 1
+        return round(same / max(1, sup), 6)
 
     unique_total = sup_tokens(train) + sup_tokens(val)
     unique_fil = sum(r["n_supervised"] for r in train + val if r["lang"] == "fil")
@@ -82,6 +94,9 @@ def main() -> None:
 
     stats = {
         "unique_examples": len(train) + len(val),
+        "label_convention": "causal_next_token (labels[i] = ids[i+1] over the final "
+                            "assistant target + EOS; never same-position labels)",
+        "label_identity_fraction": identity_fraction(train + val),
         "train_examples": len(train),
         "val_examples": len(val),
         "unique_supervised_target_tokens": unique_total,

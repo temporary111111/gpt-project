@@ -38,21 +38,32 @@ def trim_reply_ids(ids, role_markers: set, eos_id: int) -> list:
 
 
 def build_history_ids(tokenizer, history, system_text: str) -> list:
-    """Turns (role, text) history into prompt ids, keeping recent turns within ctx."""
+    """Turns (role, text) history into prompt ids, keeping RECENT turns within ctx.
+
+    TASK 005.2 (Part D/G): the most RECENT complete turns are preserved first;
+    the OLDEST turns are dropped first when the context window is full — the
+    same convention as tokenize_example() in the SFT dataset builder.
+    """
     cfg_ctx = 256
     ids: list = [tokenizer.bos_id]
     if system_text:
         ids += [tokenizer.system_id] + tokenizer.encode(system_text)
-    # Start from the last user turn; prepend older complete turns while they fit.
+    # Final user turn + <assistant> marker are always kept.
     core = []
     core += [tokenizer.user_id] + tokenizer.encode(history[-1][1])
     core += [tokenizer.assistant_id]
+    budget = cfg_ctx - len(ids) - len(core)
     prefix: list = []
-    for role, text in history[:-1]:
+    kept_turns: list = []
+    kept_len = 0
+    for role, text in reversed(history[:-1]):
         turn = ([tokenizer.user_id] + tokenizer.encode(text)) if role == "user" else \
                ([tokenizer.assistant_id] + tokenizer.encode(text))
-        if len(prefix) + len(turn) + len(ids) + len(core) > cfg_ctx:
+        if kept_len + len(turn) > budget:
             break
+        kept_turns.append(turn)
+        kept_len += len(turn)
+    for turn in reversed(kept_turns):
         prefix.extend(turn)
     return ids + prefix + core
 

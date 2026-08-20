@@ -34,10 +34,17 @@ from src.chat import build_history_ids, trim_reply_ids  # noqa: E402
 from src.model import GPTModel, ModelConfig  # noqa: E402
 from src.sft_dataset import SFTDataset  # noqa: E402
 from src.sft_train import (  # noqa: E402
+    DEFAULT_OUT_DIR,
+    anchor_replay_tokens,
+    assert_out_dir_free_for_base,
     eval_sft_loss,
     load_chat_checkpoint,
     retention_guard,
     save_checkpoint,
+    step_token_counts,
+    val_eval_indices,
+    validate_anchor_data,
+    validate_retention_factors,
 )
 from src.tokenizer import CharTokenizer, SentencePieceTokenizer  # noqa: E402
 
@@ -187,10 +194,15 @@ def test_padding_masked(tok, tmp_path):
     assert (y[0, len(e1):] == -100).all()  # padded positions of the short example
 
 
-# --- 12. EOS supervised ---
+# --- 12. EOS supervised (causal convention, TASK 005.2) ---
 def test_eos_supervised(tok):
     ids, labels = build_example_ids(tok, [("user", "Q?"), ("assistant", "A.")])
-    assert labels[-1] == tok.eos_id
+    # EOS is PREDICTED from the last assistant content token; the EOS input
+    # position itself is masked (-100). The OLD same-position labels made
+    # labels[-1] == eos_id which was the identity-copy bug.
+    assert labels[-2] == tok.eos_id
+    assert ids[-1] == tok.eos_id
+    assert labels[-1] == -100
 
 
 # --- 13. context-length handling ---
@@ -285,15 +297,15 @@ def test_sft_resume(tok, tmp_path):
     assert ckpt["best_sft_val_loss"] == 2.0
 
 
-# --- 18. catastrophic-forgetting guard ---
+# --- 18. catastrophic-forgetting guard (Part E: SEPARATE factors) ---
 def test_catastrophic_forgetting_guard():
     baseline = 3.07
-    hard_stop, eligible = retention_guard(3.5, baseline, 1.20)
-    assert hard_stop is False and eligible is True
-    hard_stop, eligible = retention_guard(3.75, baseline, 1.20)
-    assert hard_stop is True and eligible is False
-    hard_stop, eligible = retention_guard(3.51, baseline, 1.20)
-    assert hard_stop is False and eligible is True  # 3.51 < 3.684
+    hard_stop, eligible = retention_guard(3.30, baseline, 1.10, 1.15)
+    assert hard_stop is False and eligible is True   # 3.30 <= 3.07*1.10
+    hard_stop, eligible = retention_guard(3.42, baseline, 1.10, 1.15)
+    assert hard_stop is False and eligible is False  # middle window: 3.377 < 3.42 <= 3.5305
+    hard_stop, eligible = retention_guard(3.60, baseline, 1.10, 1.15)
+    assert hard_stop is True and eligible is False   # 3.60 > 3.07*1.15
 
 
 # --- 19. chat history builder ---
@@ -577,3 +589,215 @@ def test_sft_dataset_val_no_copies(tok, tmp_path):
                     pad_id=1, seed=0, shuffle=False)
     assert len(ds) == 1
     assert ds.n_supervised_tokens() == 2  # unique on the val path
+
+
+# --------------------------------------------------------------------------
+# TASK 005.2 additions: causal label alignment, guards, accounting, sampling
+# --------------------------------------------------------------------------
+
+# --- exact positional mapping of the CORRECTED causal labels ---
+def test_causal_next_token_positional_labels(tok):
+    ids, labels = build_example_ids(tok, [("user", "Q"), ("assistant", "ABC")])
+    # ids = [<bos> <user> Q <assistant> A B C <eos>]
+    assert ids[0] == tok.bos_id
+    assert ids[1] == tok.user_id
+    assert ids[3] == tok.assistant_id
+    a, b, c = tok.encode("ABC")
+    assert ids[4] == a and ids[5] == b and ids[6] == c
+    assert ids[7] == tok.eos_id
+    # causal next-token labels: labels[i] = ids[i+1] over the target span
+    assert labels[0] == -100          # <bos> masked
+    assert labels[1] == -100          # <user> masked
+    assert labels[2] == -100          # user content masked
+    assert labels[3] == a             # <assistant> predicts 'A'
+    assert labels[4] == b             # 'A' predicts 'B'
+    assert labels[5] == c             # 'B' predicts 'C'
+    assert labels[6] == tok.eos_id    # 'C' predicts <eos>
+    assert labels[7] == -100          # EOS input position masked
+    assert len(labels) == len(ids)
+
+
+# --- previous assistant turns are CONTEXT (masked), only the final answer learns ---
+def test_previous_assistant_context_masked(tok):
+    turns = [("user", "Hi"), ("assistant", "Hello"), ("user", "Q?"), ("assistant", "A.")]
+    ids, labels = build_example_ids(tok, turns)
+    start = 1 + 1 + len(tok.encode("Hi")) + 1  # after <bos><user>Hi<assistant>
+    first_asst = tok.encode("Hello")
+    for i in range(start, start + len(first_asst)):
+        assert labels[i] == -100      # first assistant turn = context only
+    assert labels[start - 1] == -100  # first <assistant> marker masked
+    sup = [v for v in labels if v != -100]
+    assert sup == tok.encode("A.") + [tok.eos_id]  # ONLY the final answer supervised
+
+
+# --- identity-copy trap: same-position predictors must NOT yield a low loss ---
+def test_identity_copy_trap_loss_high():
+    import torch.nn.functional as F
+    ids = torch.tensor([[1, 2, 5, 6, 10, 11, 12, 3]])   # bos user u asst A B C eos
+    labels = torch.tensor([[-100, -100, -100, 10, 11, 12, 3, -100]])
+    V, T = 20, 8
+    logits = torch.zeros(1, T, V)
+    logits[0, torch.arange(T), ids[0]] = 10.0  # predicts the token AT the same position
+    loss = F.cross_entropy(logits.reshape(-1, V), labels.reshape(-1), ignore_index=-100)
+    assert loss.item() > 1.0
+    # (under the OLD same-position labels this exact setup approached 0)
+
+
+# --- perfect next-token predictors DO yield ~0 loss on the corrected labels ---
+def test_perfect_next_token_logits_low():
+    import torch.nn.functional as F
+    ids = torch.tensor([[1, 2, 5, 6, 10, 11, 12, 3]])
+    labels = torch.tensor([[-100, -100, -100, 10, 11, 12, 3, -100]])
+    V, T = 20, 8
+    logits = torch.zeros(1, T, V)
+    logits[0, torch.arange(T - 1), ids[0, 1:]] = 10.0  # predicts ids[i+1]
+    loss = F.cross_entropy(logits.reshape(-1, V), labels.reshape(-1), ignore_index=-100)
+    assert loss.item() < 0.01
+
+
+# --- Part G: truncation keeps the MOST RECENT turns, drops the OLDEST ---
+def test_recent_turn_truncation_keeps_recent(tok):
+    stats = Counter()
+    ex = {"id": "t", "source": "t", "lang": "en", "split": "train",
+          "turns": [("user", "OLD" * 40), ("assistant", "oldreply"),
+                    ("user", "mid" * 5), ("assistant", "midreply"),
+                    ("user", "final question"), ("assistant", "final answer")]}
+    built = tokenize_example(ex, tok, stats, block_size=64)
+    assert built is not None
+    assert stats["dropped_oldest_turns"] >= 1
+    text_ids = built["ids"]
+
+    def contains(seq):
+        return any(text_ids[i:i + len(seq)] == seq
+                   for i in range(len(text_ids) - len(seq) + 1))
+
+    assert contains(tok.encode("final question"))  # final user turn kept
+    assert contains(tok.encode("mid"))             # RECENT history kept
+    assert contains(tok.encode("oldreply"))        # mid-recent kept
+    assert not contains(tok.encode("OLD"))         # OLDEST history dropped
+
+
+# --- Part H: deterministic, representative val sampling ---
+def test_val_eval_indices_representative_and_deterministic():
+    n, bs, iters = 1000, 8, 50
+    i1 = val_eval_indices(n, bs, iters, seed=1379)
+    i2 = val_eval_indices(n, bs, iters, seed=1379)
+    assert torch.equal(i1, i2)                  # deterministic
+    assert i1.numel() == 400                    # exactly iters*batch_size
+    assert i1.max().item() >= 400               # reaches beyond the first rows
+    assert len(set(i1.tolist())) == 400         # sampled WITHOUT replacement
+    i3 = val_eval_indices(n, bs, iters, seed=42)
+    assert not torch.equal(i1, i3)              # different seed -> different set
+    i4 = val_eval_indices(10, bs, 50, seed=0)   # full coverage when iters*bs >= n
+    assert i4.numel() == 10 and set(i4.tolist()) == set(range(10))
+
+
+def test_eval_sft_loss_deterministic_untouched(tok, tmp_path):
+    examples = []
+    for i in range(60):
+        ids, labels = build_example_ids(tok, [("user", f"q{i}"), ("assistant", f"a{i}")])
+        examples.append({"id": f"e{i}", "source": "t", "lang": "en",
+                         "ids": ids, "labels": labels, "n_supervised": 3})
+    write_sft_jsonl(tmp_path / "v.jsonl", examples)
+    cfg = ModelConfig(vocab_size=tok.vocab_size, d_model=16, n_layers=2, n_heads=2,
+                      ffn_dim=32, block_size=256)
+    model = GPTModel(cfg)
+    ds = SFTDataset(str(tmp_path / "v.jsonl"), batch_size=8, block_size=256,
+                    pad_id=1, seed=0, shuffle=False)
+    l1 = eval_sft_loss(model, ds, iters=5, device=torch.device("cpu"), use_amp=False, seed=42)
+    l2 = eval_sft_loss(model, ds, iters=5, device=torch.device("cpu"), use_amp=False, seed=42)
+    assert l1 == l2                            # deterministic
+    assert ds._pos == 0 and len(ds._order) == 60  # dataset state untouched
+
+
+# --- Part E: eligibility must be below hard-stop ---
+def test_retention_guard_requires_eligibility_lt_hard_stop():
+    validate_retention_factors(1.10, 1.15)  # OK
+    with pytest.raises(SystemExit):
+        validate_retention_factors(1.15, 1.15)
+    with pytest.raises(SystemExit):
+        validate_retention_factors(1.20, 1.15)
+    with pytest.raises(SystemExit):
+        validate_retention_factors(-1.0, 1.15)
+
+
+# --- Part F: token accounting sums ALL grad-accum microbatches ---
+def test_grad_accum_token_accounting_all_microbatches():
+    b1 = (torch.full((2, 4), 7), torch.tensor([[-100, 1, 2, -100], [-100, 3, 4, 5]]))
+    b2 = (torch.full((2, 4), 7), torch.tensor([[6, -100, 7, 8], [-100, -100, 9, -100]]))
+    b3 = (torch.full((2, 4), 7), torch.tensor([[10, 11, 12, -100], [13, 14, 15, 16]]))
+    sup, tot = step_token_counts([b1, b2, b3])
+    assert sup == 16   # 5 + 4 + 7 over ALL microbatches
+    assert tot == 24   # 3 batches * 8 tokens
+    assert sup != 7    # the OLD buggy code counted only the LAST microbatch
+
+
+# --- Part K: base replay tokens are counted SEPARATELY, never supervised ---
+def test_base_replay_tokens_counted_separately():
+    anchor_x = torch.full((2, 4), 7)
+    sup, _tot = step_token_counts([(anchor_x, torch.full((2, 4), -100))])
+    assert sup == 0                               # replay has no supervised targets
+    assert anchor_replay_tokens(anchor_x) == 8    # counted by its OWN counter
+
+
+# --- Part L: anchor coefficient applied exactly once (L = (1/G) sum SFT + w*ANCHOR) ---
+def test_anchor_loss_coefficient_scaling(tok):
+    cfg = ModelConfig(vocab_size=tok.vocab_size, d_model=8, n_layers=1, n_heads=2,
+                      ffn_dim=16, block_size=64)
+    m1 = GPTModel(cfg)
+    m2 = GPTModel(cfg)
+    m2.load_state_dict(m1.state_dict())
+    ids, labels = build_example_ids(tok, [("user", "Q?"), ("assistant", "A.")])
+    x = torch.tensor([ids])
+    y = torch.tensor([labels])
+    anchor_full = [tok.bos_id] + tok.encode("the cat sat") + [tok.eos_id]
+    ax = torch.tensor([anchor_full[:-1]])  # pretraining semantics: x[:-1] -> y[1:]
+    ay = torch.tensor([anchor_full[1:]])
+    G, w = 2, 0.10
+
+    def ce(m, xx, yy):
+        return m(xx, yy, ignore_index=-100)[1]
+
+    opt1 = torch.optim.SGD(m1.parameters(), lr=0.1)
+    opt1.zero_grad()
+    (ce(m1, x, y) / G + w * ce(m1, ax, ay)).backward()
+    g1 = [p.grad.clone() for p in m1.parameters()]
+
+    opt2 = torch.optim.SGD(m2.parameters(), lr=0.1)
+    opt2.zero_grad()
+    (ce(m2, x, y) / G).backward()       # SFT part, single 1/G
+    (w * ce(m2, ax, ay)).backward()     # anchor part, single w
+    g2 = [p.grad.clone() for p in m2.parameters()]
+
+    for a, b in zip(g1, g2):
+        assert torch.allclose(a, b, atol=1e-6)
+
+
+# --- failed chat_v1 checkpoint is never silently reused as init ---
+def test_failed_chat_v1_checkpoint_not_used_as_init(tmp_path):
+    assert DEFAULT_OUT_DIR.endswith("chat_v1_corrected")
+    free = tmp_path / "free"
+    free.mkdir()
+    assert_out_dir_free_for_base(str(free))  # empty dir OK
+    dirty = tmp_path / "dirty"
+    dirty.mkdir()
+    (dirty / "latest.pt").write_text("x")
+    with pytest.raises(SystemExit):
+        assert_out_dir_free_for_base(str(dirty))
+
+
+# --- base checkpoint integrity: pretrain_v1/best.pt SHA unchanged ---
+def test_base_checkpoint_sha_unchanged():
+    import hashlib
+    p = ROOT / "checkpoints" / "pretrain_v1" / "best.pt"
+    if not p.exists():
+        pytest.skip("base checkpoint not present")
+    h = hashlib.sha256(p.read_bytes()).hexdigest()
+    assert h == "ba40ad8ce0644720d243209049f91791d1163113e55a9fd4e3738326db8b8350"
+
+
+# --- test.bin is sealed: never usable as replay/anchor data ---
+def test_anchor_data_never_test_bin():
+    with pytest.raises(SystemExit):
+        validate_anchor_data("data/processed/test.bin")
+    validate_anchor_data("data/processed/train.bin")  # own pretraining corpus OK

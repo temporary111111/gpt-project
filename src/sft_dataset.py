@@ -1,9 +1,21 @@
-"""SFT dataset: chat-formatted examples with assistant-only loss labels.
+"""SFT dataset: chat-formatted examples with CAUSAL assistant-only labels.
 
 Loads the JSONL produced by scripts/build_sft_dataset.py. Each example has
-`ids` (full token sequence, <= context length), `labels` (-100 for BOS/user/
-context/role-marker/padding, token id for the final assistant target + EOS),
-plus metadata (source, lang, id, n_supervised, weight, copies).
+`ids` (full token sequence, <= context length) and `labels` with the TASK
+005.2 causal next-token convention:
+
+  labels[i] = ids[i + 1]  when ids[i + 1] is final-assistant content or the
+                          terminating EOS
+  labels[i] = -100        otherwise (BOS / user / context / role markers /
+                          padding / the EOS input position)
+
+So the FIRST assistant token is predicted from the <assistant> role marker
+and EOS is predicted from the LAST assistant content token; the same-position
+identity objective (labels[i] = ids[i]) is NEVER used. Model input x = ids
+and targets y = labels occupy the SAME tensor positions (GPTModel computes
+cross entropy at position i against target i — exactly the pretraining
+BinaryDataset x[:-1]/y[1:] semantics, pre-shifted here in the labels).
+Plus metadata (source, lang, id, n_supervised, weight, copies).
 
 Sampling (TASK 005.1 Part G/H): each train example carries an integer
 `copies` multiplier (Filipino up to 4x; English sources above 50% of effective
@@ -56,11 +68,16 @@ class SFTDataset:
                     continue
                 ex = json.loads(line)
                 ids = ex["ids"]
+                labels = ex["labels"]
+                if len(labels) != len(ids):
+                    raise ValueError(
+                        f"example {ex.get('id')} labels length {len(labels)} "
+                        f"!= ids length {len(ids)}")
                 if len(ids) > self.block_size:
                     raise ValueError(
                         f"example {ex.get('id')} length {len(ids)} > block_size {self.block_size}")
                 self.ids.append(ids)
-                self.labels.append(ex["labels"])
+                self.labels.append(labels)
                 self.meta.append({
                     "id": ex.get("id", ""),
                     "source": ex.get("source", ""),
