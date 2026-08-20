@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "project": "chatgpt-like",
-  "updated_at": "2026-08-20T04:22:08Z",
+  "updated_at": "2026-08-20T04:47:51Z",
   "project_root": "C:\\Users\\dev\\Desktop\\chatgpt-like",
   "python": "3.11",
   "venv": ".\\.venv\\Scripts\\python.exe",
@@ -13,10 +13,10 @@
     "vram_gb": 4
   },
   "strict_from_scratch": true,
-  "current_phase": "TASK 005.1 pipeline phase DONE; TOKEN GATE PASSED (1,863,853 >= 1M); pilot+full SFT training next",
+  "current_phase": "TASK 005.1 training phase: SFT PILOT HARD-STOPPED at step 200 (retention: base-val 15.8796 > 3.7124); AWAITING architect mitigation decision; run 2 NOT started",
   "last_completed_task": "TASK 005 (pipeline; training STOPPED at Part E gate 624,057 < 1M)",
-  "current_task": "TASK 005.1 (Expand Human SFT Corpus + Complete Chat V1 Training) — pipeline DONE, training phase",
-  "next_planned_task": "TASK 005.1 training phase (pilot -> full SFT -> post-SFT eval -> tag)",
+  "current_task": "TASK 005.1 (Expand Human SFT Corpus + Complete Chat V1 Training) — pipeline DONE + gate PASSED; PILOT FAILED; BLOCKED on mitigation approval",
+  "next_planned_task": "TASK 005.1 retry pilot with approved mitigation -> full SFT -> post-SFT eval -> tag (only on success)",
   "model": {
     "name": "GPT-style decoder-only Transformer",
     "params_total": 29270528,
@@ -108,13 +108,15 @@
       "tokens_seen": 314400768
     },
     "chat_v1": {
-      "note": "NO .pt files exist (training NOT yet started); baseline eval outputs only",
+      "note": "PILOT FAILED (hard stop step 200). best.pt does NOT exist; latest.pt (step 200) is a DIAGNOSIS artifact only - never a release model. Baseline eval outputs retained.",
       "baseline_chat_samples": "checkpoints/chat_v1/baseline_chat_samples.txt",
-      "eval_metrics": "checkpoints/chat_v1/eval_metrics.json"
+      "eval_metrics": "checkpoints/chat_v1/eval_metrics.json",
+      "latest_pt_step": 200,
+      "latest_pt_role": "diagnosis artifact (memorized SFT targets; base-val 15.8796)"
     }
   },
   "sft": {
-    "task": "TASK 005.1 pipeline complete; training NOT yet started",
+    "task": "TASK 005.1 pipeline complete (gate PASSED); PILOT HARD-STOPPED at step 200; full training NOT started",
     "sources": [
       {
         "repo": "CohereLabs/aya_dataset",
@@ -194,10 +196,29 @@
       "src/sft_train.py"
     ],
     "provenance": "data/sft/manifests/sources.jsonl + SOURCES.md",
-    "report": "data/sft/stats/SFT_DATA_REPORT.md"
+    "report": "data/sft/stats/SFT_DATA_REPORT.md",
+    "pilot": {
+      "status": "HARD_STOPPED",
+      "run": "run 1 (--init-from base --max-epochs 1 --out-dir checkpoints/chat_v1 --retention-baseline 3.093633)",
+      "stopped_at_step": 200,
+      "max_iters": 1429,
+      "train_sft_loss_step_200": 0.002,
+      "sft_val_loss_step_200": 0.0021,
+      "base_val_loss_step_200": 15.8796,
+      "sft_val_baseline_untrained": 11.3976,
+      "memorization": "train AND held-out SFT val loss ~0.002 within 200 steps",
+      "amp_nonfinite_grad_events": 2,
+      "amp_self_healed": true,
+      "supervised_tokens_seen": 65988,
+      "total_tokens_seen": 387504,
+      "peak_vram_gb": 2.2,
+      "eval_path_validated": "base best.pt re-eval on validation.bin = 3.0733 (matches recorded 3.073326)",
+      "generation_probe": "base: 'The quick brown fox had been seen by the ladder...' vs step-200: 'The quick brown foxxxxxxx...' (collapse)",
+      "blocked_on": "architect mitigation decision (LR / regularization / epochs / base-data mix / layer freezing)"
+    }
   },
   "known_limitations": [
-    "base model only, not chat/instruction tuned (SFT training not yet run)",
+    "base model only, not chat/instruction tuned (SFT PILOT FAILED retention; retraining blocked on architect decision)",
     "Filipino only 10.5% of EFFECTIVE supervised tokens (4x cap reached; natural ratio)",
     "repetition, especially greedy decoding",
     "fluent factual hallucination",

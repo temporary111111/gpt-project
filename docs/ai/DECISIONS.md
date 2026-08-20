@@ -189,3 +189,20 @@ English function words, or a >=6-word target with a <2-word-hit prompt
 and 0 Somali survivors in the final corpus. WHY: mislabeled non-English
 content would pollute the English chat signal; the check is deterministic,
 tested, and never rewrites data.
+## D-029: SFT pilot at peak LR 5e-5 memorizes and collapses — retention guard verified (2026-08-20)
+Run 1 of the TASK 005.1 pilot (peak LR 5e-5, 29.27M params, 1.84M effective
+SFT tokens/epoch) reached train loss 0.0020 and held-out SFT val loss 0.0021
+by step 200 while base-language validation loss exploded to 15.8796
+(baseline 3.093633; hard stop > 3.7124). The guard hard-stopped training as
+designed; a fresh eval of the untouched base checkpoint on the same path
+returns 3.0733, proving the reading is genuine catastrophic forgetting, not a
+measurement bug. Diagnosis: with a small model and a comparatively small
+supervised corpus, 5e-5 peak LR drives near-instant memorization; the SFT
+validation split shares templates/domains with training (Taskmaster is
+template-heavy, Dolly categories overlap) so sft_val is NOT a useful
+early-warning signal — base-language retention is the health metric and it
+fired correctly. NEXT: architect-approved mitigation (e.g. peak LR 1e-5,
+higher wd / dropout during SFT, fewer or filtered epochs, base-data anchor
+mixing, or layer-wise lower LR) re-validated with the SAME pilot gate before
+full training; failed checkpoint kept for diagnosis only, retries in a NEW
+out-dir.

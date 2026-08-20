@@ -1,6 +1,7 @@
 # CURRENT TASK
 
 **TASK 005.1 — EXPAND HUMAN SFT CORPUS AND COMPLETE CHAT V1 TRAINING**
+**(status: PILOT HARD STOPPED — awaiting architect mitigation decision)**
 
 ## Objective
 Expand the TASK 005 SFT corpus with Databricks Dolly 15K + Taskmaster-1
@@ -10,42 +11,36 @@ guards) → post-SFT evaluation → milestone tag `task-005-chat-v1-complete`.
 Do NOT start TASK 006.
 
 ## Status
-- DONE (pipeline phase): Dolly acquisition (15,010) + Taskmaster-1 acquisition
-  (13,170 convs, official dialog-ID splits); build_sft_dataset.py extended
-  (Dolly/TM builders, cross-source dedup with source-pair report, probe
-  exclusion on ANY user turn, fil sampling weight ≤4x + English source
-  balance, unique/effective gate stats, aya-eng mislabel filter — 104 rows);
-  src/sft_dataset.py (copies/effective epochs, unique vs effective token
-  methods); src/sft_train.py (dynamic eval interval, unique/effective
-  accounting); sft_stats.py; build_handoff.py Parts J/K (manifests/stats +
-  chat_v1 small files included; chat_v1 best/latest hashed-excluded;
-  data/sft/raw + processed denied); 12 new held-out multi-turn eval probes;
-  127/127 tests green; 150-sample quality audit passed; corpus rebuilt →
-  UNIQUE_SUPERVISED_TARGET_TOKENS = 1,863,853 → **GATE PASSED** (Part M:
-  continue automatically); SOURCES.md + SFT_DATA_REPORT.md updated; base
-  checkpoint SHA re-verified (ba40ad8c…).
-- NEXT (training phase): Part Y commit+push of tested code (this commit) →
-  Part Q pilot run 1 (`--max-epochs 1`, ~200 optimizer steps; retention
-  eligibility base-val ≤ 3.557678, hard stop > 3.712360) → Part R run 2
-  (`--init-from resume --max-epochs 3`, early stop 4 evals) → Parts T/U/V/W
-  post-SFT eval + interactive chat → docs/report/finalize/tag.
+- DONE (pipeline phase): corpus 50,776 examples / UNIQUE 1,863,853 tokens →
+  **GATE PASSED**; 127/127 tests; quality audit; base SHA re-verified;
+  committed+pushed (5a51aa6).
+- **FAILED (Part Q pilot, run 1)**: hard stop at step 200/1429 — base-val
+  15.8796 > 3.7124 (baseline 3.093633 × 1.20). Model memorized SFT targets
+  (sft_val 0.0021, train 0.0020) and lost base language ability (probe:
+  "foxxxxxx…"). Eval path validated (base best.pt re-eval 3.0733) — genuine
+  forgetting, not a measurement artifact. chat_v1/latest.pt (step 200) kept
+  for diagnosis; chat_v1/best.pt does NOT exist.
+- BLOCKED: run 2 (full SFT) must NOT start until the lead architect approves
+  a mitigation (LR reduction, regularization, epoch filtering, base-data
+  mixing, layer freezing, or another approach). Same pilot gate applies to
+  any retry: eligible base-val ≤ 3.557678; hard stop > 3.712360.
 
-## Config (Part P)
+## Config (Part P, unchanged)
 batch 8, grad accum 4, ctx 256, peak LR 5e-5 → min 5e-6, wd 0.01, clip 1.0,
 AMP fp16, seed 1337, max 3 epochs, warmup max(100, 3%), eval ~200 steps with
-several evals per epoch (auto-tightened), early stop 4 evals. New
-optimizer/scaler/scheduler state (NOT a pretraining resume); full fine-tune
-(no LoRA).
+several evals per epoch (auto-tightened), early stop 4 evals. Full fine-tune
+(no LoRA). NOTE: the pilot failure suggests 5e-5 is too aggressive for this
+29.27M model on this corpus; mitigation pending.
 
 ## Outputs so far
-- data/sft/raw/ + processed/ (git-ignored); manifests/sources.jsonl +
-  SOURCES.md, stats/sft_stats.json + SFT_DATA_REPORT.md +
-  quality_audit_samples.txt (tracked).
-- checkpoints/chat_v1/: baseline outputs only (no .pt yet).
+- data/sft/manifests + stats (tracked); raw/processed (git-ignored).
+- checkpoints/chat_v1/: baseline eval outputs + failed-pilot latest.pt
+  (diagnosis only) + metrics.jsonl + run_config.json.
+- docs/ai/reports/TASK_005_1_REPORT.txt (full failure report).
 
 ## Rules while doing this task
-- Preserve the 2 TASK 005 fixes (label alignment; no OASST leak).
+- Preserve the TASK 005 fixes (label alignment; no OASST leak) + TASK 005.1
+  checks (TM conv isolation, mislabel filter, dedup).
 - test.bin stays sealed; never modify best.pt / latest.pt / *.bin.
-- Only .\.venv\Scripts\python.exe; strict from-scratch still applies (no
-  synthetic data, no auto-MT, no external LLM answers; DeepSeek writes code
-  only, never training examples).
+- Only .\.venv\Scripts\python.exe; strict from-scratch still applies.
+- Do NOT start TASK 006. Do NOT retrain without architect approval.

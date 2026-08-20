@@ -1,0 +1,280 @@
+================================================================================
+TASK 005.1 RESULT — EXPAND HUMAN SFT CORPUS + CHAT V1 TRAINING — PILOT HARD STOP
+================================================================================
+The expanded corpus pipeline completed and the UNIQUE supervised target
+token gate PASSED (1,863,853 >= 1,000,000), but the Part Q SFT PILOT hit the
+retention HARD STOP at step 200: base-language validation loss 15.8796 >
+3.7124 (baseline 3.093633 x 1.20). The model memorized the SFT targets
+(sft_val 0.0021) while catastrophically forgetting base language ability
+(generation collapses to "foxxxxxx..."). FULL TRAINING WAS NOT STARTED (run 2
+not launched). The lead architect must decide the mitigation path (e.g.
+lower peak LR, stronger regularization, shorter/filtered training, base-data
+mixing) before any retraining.
+
+================================================================================
+FROM-SCRATCH VERIFICATION
+================================================================================
+- No pretrained LLM weights, tokenizer, or embeddings anywhere in the pipeline.
+- No distillation. No external LLM API used as model brain or to write answers.
+- SFT data is 100% human-written (Aya original annotations + OASST1 human-only
+  + Databricks Dolly 15K + Taskmaster-1); synthetic/re-annotated/model-
+  generated rows rejected.
+- Engineer role was software-only: no linguistic prompt/response pairs were
+  authored by the engineer.
+- Base weights untouched: checkpoints/pretrain_v1/best.pt SHA-256
+  ba40ad8ce0644720d243209049f91791d1163113e55a9fd4e3738326db8b8350 (unchanged,
+  re-verified at task start and after the failed pilot).
+
+================================================================================
+SFT DATA SOURCES (4 HUMAN-ONLY)
+================================================================================
+- CohereLabs/aya_dataset rev f9ea04583f02a8f86404ff6c58bf75fe637df8a2
+  (Apache-2.0; original-annotations, eng+fil): 2,568 final examples,
+  180,896 unique supervised tokens.
+- OpenAssistant/oasst1 rev fdf72ae0827c1cda404aff25b6603abec9e3399b
+  (Apache-2.0; human-only en): 4,266 final examples, 439,354 tokens.
+- databricks/databricks-dolly-15k rev bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a
+  (cc-by-sa-3.0): 10,926 final examples, 715,354 tokens.
+- google-research-datasets/Taskmaster (TM-1-2019) rev
+  d92cb6af3005f1dc09c39e75e7daf4a04905e00b (CC BY 4.0): 33,016 final examples
+  (13,170 conversations), 528,249 tokens.
+- Full provenance: data/sft/manifests/sources.jsonl + SOURCES.md; raw files
+  data/sft/raw/* (git-ignored, SHA-256 recorded).
+
+================================================================================
+SFT CORPUS STATISTICS (FINAL)
+================================================================================
+- Final examples: 50,776 (train 43,660 / val 7,116).
+- UNIQUE_SUPERVISED_TARGET_TOKENS = 1,863,853 (train 1,697,262 /
+  val 166,591) >= 1,000,000 floor -> GATE PASSED (Part M: continue).
+- Sampling (SAMPLING ONLY, never counted toward the gate): fil_weight 4.0
+  (cap; effective fil share 10.5%), English source weights all 1.0 (no
+  source >50%; largest dolly 39.5%); effective train 45,724 examples /
+  1,841,814 tokens.
+- target unk rate 0.0; leakage checks all 0 (id / TM conversation / OASST
+  tree); cross-source dedup 1,160 exact pairs; aya-eng mislabel filter
+  rejected 104; 150-sample quality audit passed.
+
+================================================================================
+FILIPINO
+================================================================================
+- Unique fil supervised tokens 51,126 (2.7% unique; 10.5% effective at the
+  4x cap — maximum achievable without fabrication/translation, per D-022/
+  D-026). No auto-translation, no fabricated Filipino.
+
+================================================================================
+SFT FORMAT + ASSISTANT-ONLY LOSS
+================================================================================
+- <bos><user>U<assistant>A<eos>; only the final assistant target + EOS are
+  supervised; labels = -100 for BOS/user/context/role markers/padding.
+- Both TASK 005 fixes preserved and re-verified by the suite: assistant-label
+  alignment (no shift onto user tokens) and OASST validation->train split
+  isolation; plus TM conversation-level and OASST tree-level isolation.
+
+================================================================================
+BASELINE CHAT RESULTS (unchanged, Part K)
+================================================================================
+- checkpoints/chat_v1/baseline_chat_samples.txt + eval_metrics.json
+  (pretrain_v1/best.pt): greedy EOS 0.0, repetition 0.68, fil-in-fil 0.4,
+  eng-in-eng 0.5; sampled EOS 0.1, repetition 0.13. Untuned-base behavior.
+
+================================================================================
+BASELINE BASE-LM VALIDATION LOSS
+================================================================================
+- BASELINE_PRETRAIN_VAL_LOSS = 3.093633 (validation.bin, 50 iters, AMP fp16;
+  measured 2026-08-20, eval-only). Re-validated during this task: fresh
+  eval of pretrain_v1/best.pt on validation.bin = 3.0733 (matches recorded
+  best val 3.073326) — the eval path used by the retention guard is correct.
+
+================================================================================
+SFT TRAINING CONFIG (Part P, unchanged)
+================================================================================
+- configs/sft_chat_v1.json: batch 8, grad accum 4 (effective 32), ctx 256,
+  peak lr 5e-5, min lr 5e-6, wd 0.01, clip 1.0, AMP fp16, seed 1337, max 3
+  epochs, warmup max(100, 3%), eval interval auto-tightened (200 here),
+  pilot 200 steps. Full fine-tune (no LoRA); fresh optimizer/scaler state.
+- Retention guard: eligible base-val <= 3.557678; hard stop > 3.712360;
+  early stop after 4 no-improve evals.
+
+================================================================================
+PILOT RESULT (Part Q, run 1)
+================================================================================
+RUN EXECUTED and HARD-STOPPED at step 200 of 1429 (1 epoch).
+- Command: .\.venv\Scripts\python.exe -m src.sft_train --init-from base
+  --max-epochs 1 --out-dir checkpoints\chat_v1 --retention-baseline 3.093633
+- Base weights loaded from pretrain_v1/best.pt (step 36,500, val 3.073326).
+- Chat-format baseline (untrained): sft_val 11.3976.
+- Non-finite grad norm events at steps 5 and 32: optimizer step skipped, AMP
+  scale halved, training continued (self-healing path, as in TASK 004).
+- Train sft_loss trajectory: 10.32 (25) -> 6.46 (50) -> 2.80 (75) ->
+  0.397 (100) -> 0.0432 (125) -> 0.0079 (150) -> 0.0038 (175) -> 0.0020 (200).
+- Step-200 eval: sft_val 0.0021 (near-perfect memorization of held-out SFT
+  val) | base_val 15.8796 vs baseline 3.093633 -> HARD STOP triggered
+  (> 3.7124). Training stopped; latest.pt (step 200) preserved; best.pt
+  NEVER written (eligibility False).
+- Peak VRAM 2.20 GB. Supervised tokens seen 65,988; total tokens 387,504.
+
+================================================================================
+TOTAL OPTIMIZER STEPS
+================================================================================
+200 (of up to 4,287 planned across 3 epochs).
+
+================================================================================
+SUPERVISED TARGET TOKENS SEEN
+================================================================================
+65,988 (~3.6% of the effective training corpus).
+
+================================================================================
+BEST SFT VALIDATION LOSS
+================================================================================
+0.0021 (step 200) — this is MEMORIZATION, not learning: the held-out SFT
+validation loss collapsed to near zero in 200 steps while base-language
+ability collapsed at the same time.
+
+================================================================================
+BEST CHECKPOINT STEP
+================================================================================
+chat_v1/latest.pt at step 200 (saved by the hard-stop path). chat_v1/best.pt
+does NOT exist (retention eligibility never satisfied).
+
+================================================================================
+POST-SFT BASE-LM VALIDATION LOSS
+================================================================================
+15.8796 at step 200 (baseline 3.093633; eligibility threshold 3.557678;
+hard-stop threshold 3.712360). Genuine catastrophic forgetting — verified
+not a measurement artifact: the same eval path re-measures the untouched
+base checkpoint at 3.0733.
+
+================================================================================
+BASE LANGUAGE RETENTION
+================================================================================
+FAILED (HARD STOP). base_val 15.8796 > 3.7124. pretrain_v1/best.pt itself
+remains untouched and verified (SHA-256 ba40ad8c..., eval 3.0733).
+
+================================================================================
+CHAT QUALITY COMPARISON
+================================================================================
+Not run (requires a healthy chat checkpoint). Generation probe on the
+step-200 checkpoint demonstrates the collapse:
+- base (pretrain_v1/best.pt): "The quick brown fox had been seen by the
+  ladder, and the ladder was still in the middle of the room..."
+- step-200 (chat_v1/latest.pt): "The quick brown foxxxxxxxxxxxxxxxxx..."
+(scripts/evaluate_chat.py --mode compare is ready and will be used on any
+retrained checkpoint.)
+
+================================================================================
+FILIPINO CHAT QUALITY
+================================================================================
+Not evaluated post-SFT (no healthy checkpoint).
+
+================================================================================
+ENGLISH CHAT QUALITY
+================================================================================
+Not evaluated post-SFT (no healthy checkpoint).
+
+================================================================================
+MULTI-TURN RESULT
+================================================================================
+Not evaluated (no healthy checkpoint; 8 multi-turn probes ready: Bruno fil +
+eng + 6 new held-out pairs).
+
+================================================================================
+REPETITION
+================================================================================
+Not evaluated post-SFT (baseline greedy 0.68 / sampled 0.13 unchanged).
+
+================================================================================
+ROLE LEAKAGE
+================================================================================
+Not evaluated post-SFT (baseline 0.0 unchanged).
+
+================================================================================
+EOS METRICS
+================================================================================
+Not evaluated post-SFT (baseline greedy 0.0 / sampled 0.1 unchanged).
+
+================================================================================
+PEAK VRAM
+================================================================================
+2.20 GB (SFT pilot, step 200 eval window); 1.60 GB steady-state training.
+
+================================================================================
+CHECKPOINT VERIFICATION
+================================================================================
+- checkpoints/chat_v1/latest.pt (step 200, from the failed pilot) exists;
+  chat_v1/best.pt does NOT exist. The failed checkpoint is preserved for
+  diagnosis (it is NOT a release artifact; it will never be used as a model).
+- pretrain_v1/best.pt SHA-256 ba40ad8c... and latest.pt SHA-256 8c00ff4d...
+  verified unchanged at task start and end.
+
+================================================================================
+TEST RESULTS
+================================================================================
+- Full suite: 127/127 PASSED (pytest, .\.venv\Scripts\python.exe -m pytest
+  tests -v): 83 test_ai_ops + 25 test_sft (TASK 005) + 19 new TASK 005.1
+  tests (dolly/taskmaster builders, dedup, gate, filipino weighting, English
+  source balance, copies/effective epochs, probe exclusion, mislabel filter,
+  handoff roots/omit/deny/inclusion).
+
+================================================================================
+ERRORS OR WARNINGS
+================================================================================
+- WARN: non-finite grad norm at steps 5 and 32 — handled by the designed
+  AMP self-heal (skip step, halve scale); training continued.
+- RESULT (not an error): retention HARD STOP at step 200 — the guard
+  performed exactly as designed.
+- Diagnosis of the failure: a 29.27M-parameter model at peak LR 5e-5
+  memorizes the small supervised corpus within ~200 steps (train AND
+  held-out val loss ~0.002) while destroying base language ability. The SFT
+  validation loss is NOT a reliable early-warning signal here because the
+  validation examples share templates/domains with training (Taskmaster is
+  template-heavy; Dolly categories overlap); the base-language retention
+  metric fired correctly as the health signal.
+
+================================================================================
+GIT COMMIT
+================================================================================
+Performed by finalize_task.py (tests must pass first). Contents: pipeline
+phase (code, corpus manifests/stats, docs, report) already committed+pushed
+(5a51aa6, Part Y) prior to the pilot; this finalization commits the pilot
+result, report, and docs/ai updates.
+
+================================================================================
+GIT PUSH
+================================================================================
+Pushed to origin (https://github.com/temporary111111/gpt-project.git) by the
+finalizer when an authenticated remote exists.
+
+================================================================================
+MILESTONE TAG
+================================================================================
+NOT created. Per Part Z the milestone tag task-005-chat-v1-complete may only
+be created on SUCCESS (all success criteria, incl. healthy post-SFT
+evaluation). The pilot HARD STOPPED, so no tag was created and no training
+success is claimed.
+
+================================================================================
+AI_LEAD_HANDOFF READY
+================================================================================
+Yes — rebuilt from the exact committed state by finalize_task.py (manifest
+commit SHA == finalizer commit SHA).
+
+================================================================================
+USER CHAT COMMAND
+================================================================================
+Reserved for after a successful SFT run:
+  .\.venv\Scripts\python.exe -m src.chat --checkpoint checkpoints\chat_v1\best.pt --tokenizer-model data\tokenizer\tokenizer_v1.model
+NOT applicable now: no chat_v1/best.pt exists (pilot hard-stopped).
+
+================================================================================
+READY FOR NEXT ARCHITECT REVIEW
+================================================================================
+Yes. Decision required: how to retrain so retention holds. Options for the
+lead architect to consider: (a) lower peak LR (e.g. 1e-5 with the same
+schedule); (b) stronger regularization (weight decay up, or dropout>0 during
+SFT); (c) fewer/filtered epochs or smaller effective batches; (d) mixing a
+fraction of base-language pretraining data into each SFT batch to anchor
+language ability; (e) layer-wise freezing / lower LR for early layers. The
+pipeline, guards, and evaluation harness are all in place and re-runnable;
+any mitigation can be validated with the same pilot gate (base-val <=
+3.557678 eligible; > 3.712360 hard stop).

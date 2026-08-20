@@ -116,7 +116,9 @@ GPT-style decoder-only Transformer:
 
 ## Current limitations
 
-- base model NOT chat/instruction tuned (SFT training not yet run; no chat_v1 weights exist)
+- base model NOT chat/instruction tuned: SFT PILOT FAILED retention guard at
+  step 200 (memorization + catastrophic forgetting; base-val 15.8796 > 3.7124)
+  — retraining BLOCKED on lead architect mitigation decision (D-029)
 - repetition, especially greedy decoding
 - fluent factual hallucination
 - small-model reasoning limitations
@@ -125,14 +127,19 @@ GPT-style decoder-only Transformer:
 
 ## Next planned stage
 
-TASK 005.1 training phase (in progress): SFT pilot (~200 optimizer steps,
-retention eligibility ≤ 3.557678 / hard stop > 3.712360), then full SFT
-(`--init-from resume --max-epochs 3`, early stop after 4 consecutive val
-evals without improvement), then post-SFT evaluation
-(`scripts/evaluate_chat.py --mode compare` — 20 fixed probes greedy+sampled,
-Bruno + 6 new held-out multi-turn probes, EOS/repetition/role-leakage,
-fil-in-fil & eng-in-eng), then interactive chat verification, report,
-finalize, and milestone tag `task-005-chat-v1-complete` on success.
+TASK 005.1 (BLOCKED): SFT pilot hard-stopped at step 200 (base-val 15.8796 >
+3.712360; sft_val 0.0021 = memorization). WAITING for lead architect
+mitigation decision — options: lower peak LR (e.g. 1e-5), stronger
+regularization (wd up / dropout), fewer/filtered epochs, mixing base-language
+pretraining data as an anchor, layer-wise freeze/lower LR. After approval:
+retry pilot in a NEW out-dir with the SAME gate (eligible base-val <=
+3.557678; hard stop > 3.712360), then full SFT (`--init-from resume
+--max-epochs 3`, early stop after 4 consecutive val evals without
+improvement), post-SFT evaluation (`scripts/evaluate_chat.py --mode compare`
+— 20 fixed probes greedy+sampled, Bruno + 6 new held-out multi-turn probes,
+EOS/repetition/role-leakage, fil-in-fil & eng-in-eng), interactive chat
+verification, report, finalize, and milestone tag
+`task-005-chat-v1-complete` ONLY on success (Part Z).
 
 ## Long-term roadmap
 
